@@ -16,21 +16,21 @@ namespace CarWashPoint.Services
         }
 
         // Authenticate and get token
-        public async Task<TokenResponse> AuthenticateAsync(string username, string password)
-        {
-            var content = new FormUrlEncodedContent(new[]
-            {
-            new KeyValuePair<string, string>("grant_type", "password"),
-            new KeyValuePair<string, string>("username", username),
-            new KeyValuePair<string, string>("password", password)
-        });
+        //public async Task<TokenResponse> AuthenticateAsync(string username, string password)
+        //{
+        //    var content = new FormUrlEncodedContent(new[]
+        //    {
+        //    new KeyValuePair<string, string>("grant_type", "password"),
+        //    new KeyValuePair<string, string>("username", username),
+        //    new KeyValuePair<string, string>("password", password)
+        //});
 
-            var response = await _httpClient.PostAsync($"{_baseUrl}/token", content);
-            response.EnsureSuccessStatusCode();
-            var json = await response.Content.ReadAsStringAsync();
-            _token = JsonConvert.DeserializeObject<TokenResponse>(json).AccessToken;
-            return JsonConvert.DeserializeObject<TokenResponse>(json);
-        }
+        //    var response = await _httpClient.PostAsync($"{_baseUrl}/token", content);
+        //    response.EnsureSuccessStatusCode();
+        //    var json = await response.Content.ReadAsStringAsync();
+        //    _token = JsonConvert.DeserializeObject<TokenResponse>(json).AccessToken;
+        //    return JsonConvert.DeserializeObject<TokenResponse>(json);
+        //}
 
         // Start a payment session
         public async Task<SessionResponse> PayAmountAsync(int amountInPennies)
