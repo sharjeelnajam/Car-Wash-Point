@@ -1,0 +1,17 @@
+﻿.bg-gradient-primary {
+    background: linear-gradient(90deg, #007bff 0%, #00c6ff 100%);
+}
+
+.table-row:hover {
+    background-color: #f0f8ff !important;
+    transition: background 0.2s;
+}
+
+.card {
+    border-radius: 1rem;
+}
+
+.card-header {
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
+}
