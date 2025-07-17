@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using CarWashPoint.Models;
+using Newtonsoft.Json;
 using System.Text;
 
 namespace CarWashPoint.Services

@@ -13,13 +13,18 @@ namespace CarWashPoint.Models
         [JsonProperty("paymentType")]
         public string PaymentType { get; set; } // "Bills" or "Coins"
 
+        [JsonProperty("cashboxValue")]
+        public int CashboxValue { get; set; } // Penny value (e.g., $100 = 10000)
+
         [JsonProperty("serialNumber")]
         public string SerialNumber { get; set; }
 
-        [JsonProperty("cashboxValue")]
-        public int CashboxValue { get; set; } // Penny value (e.g., $100 = 10000)
+        [JsonProperty("storedValue")]
+        public int StoredValue { get; set; }
 
         [JsonProperty("denominations")]
         public List<Denomination> Denominations { get; set; }
     }
+
+
 }
