@@ -1,4 +1,5 @@
 ﻿using CarWashPoint.Models;
+using CarWashPoint.Responses.TransactionList;
 using Newtonsoft.Json;
 using System.Text;
 
