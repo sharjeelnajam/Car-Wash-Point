@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace CarWashPoint.Responses.TransactionCount;
+namespace CarWashPoint.Responses.Logs.TransactionCount;
 
 public class BasicResponse
 {

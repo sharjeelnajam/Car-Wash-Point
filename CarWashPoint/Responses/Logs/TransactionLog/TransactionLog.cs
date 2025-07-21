@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace CarWashPoint.Responses.TransactionLog;
+namespace CarWashPoint.Responses.Logs.TransactionLog;
 
 public class TransactionLog
 {

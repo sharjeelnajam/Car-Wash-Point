@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace CarWashPoint.Responses.TransactionListDateTime;
+namespace CarWashPoint.Responses.Logs.TransactionListDateTime;
 
 public class TransactionListDateTime
 {
