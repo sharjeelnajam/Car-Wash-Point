@@ -1,0 +1,41 @@
+@page "/transaction-list"
+
+<PageTitle>Transaction List</PageTitle>
+
+<h3>Transaction List</h3>
+
+<table class="table table-bordered table-striped">
+    <thead class="table-primary">
+        <tr>
+            <th>Timestamp</th>
+            <th>Transaction ID</th>
+            <th>Transaction Type</th>
+            <th>Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var log in dummy.Logs)
+        {
+            <tr>
+                <td>@log.Timestamp</td>
+                <td>@log.TransactionId</td>
+                <td>@log.TransactionType</td>
+                <td>@log.Value</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private CarWashPoint.Responses.Logs.TransactionList.TransactionList dummy = new()
+    {
+        ResponseCode = 200,
+        ResponseLogCount = 3,
+        Logs = new List<CarWashPoint.Responses.Logs.TransactionList.TransactionLog>
+        {
+            new() { Timestamp = "2024-06-01 10:00:00", TransactionId = "TXN001", TransactionType = "Payment", Value = 500 },
+            new() { Timestamp = "2024-06-01 11:00:00", TransactionId = "TXN002", TransactionType = "Refund", Value = 200 },
+            new() { Timestamp = "2024-06-01 12:00:00", TransactionId = "TXN003", TransactionType = "Payment", Value = 700 }
+        }
+    };
+}

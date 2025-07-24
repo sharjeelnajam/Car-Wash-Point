@@ -1,5 +1,4 @@
 ﻿using CarWashPoint.Models;
-using CarWashPoint.Responses.TransactionList;
 using Newtonsoft.Json;
 using System.Text;
 
@@ -49,12 +48,12 @@ namespace CarWashPoint.Services
         }
 
         // Get transaction logs
-        public async Task<LogResponse> GetTransactionLogsAsync(int index = 0)
-        {
-            var response = await _httpClient.GetAsync($"{_baseUrl}/log?mode=index&value={index}");
-            response.EnsureSuccessStatusCode();
-            return JsonConvert.DeserializeObject<LogResponse>(await response.Content.ReadAsStringAsync());
-        }
+        //public async Task<LogResponse> GetTransactionLogsAsync(int index = 0)
+        //{
+        //    var response = await _httpClient.GetAsync($"{_baseUrl}/log?mode=index&value={index}");
+        //    response.EnsureSuccessStatusCode();
+        //    return JsonConvert.DeserializeObject<LogResponse>(await response.Content.ReadAsStringAsync());
+        //}
 
         private async Task<SessionResponse> PostSessionAsync(SessionRequest request)
         {
