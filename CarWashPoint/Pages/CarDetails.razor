@@ -1,5 +1,4 @@
 ﻿@page "/car-details"
-@using CarWashPoint.Shared.Entities
 
 <div class="container mt-5">
     <div class="row justify-content-center">
@@ -57,6 +56,19 @@
 
     protected override async Task OnInitializedAsync()
     {
-        cars = await HttpClient.GetFromJsonAsync<List<Car>>("https://localhost:7021/api/Car");
+        cars = new List<Car>
+            {
+                new Car { Id = 1, Name = "Sedan", Model = "Toyota Camry", WashPrice = 15.00m },
+                new Car { Id = 2, Name = "SUV", Model = "Honda CR-V", WashPrice = 20.00m },
+                new Car { Id = 3, Name = "Hatchback", Model = "Ford Focus", WashPrice = 12.00m }
+            };
+    }
+
+    class Car
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Model { get; set; }
+        public decimal WashPrice { get; set; }
     }
 }
