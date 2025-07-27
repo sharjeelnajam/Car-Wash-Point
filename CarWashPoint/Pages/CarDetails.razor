@@ -37,7 +37,7 @@
                                     <tr>
                                         <td class="py-3"><i class="bi bi-car-front me-2 text-secondary"></i>@car.Name</td>
                                         <td class="py-3">@car.Model</td>
-                                        <td class="py-3"><span class="badge bg-success fs-4">@car.WashPrice.ToString("C")</span></td>
+                                        <td class="py-3"><button @onclick="GoToPayment" class="badge bg-success fs-4">@car.WashPrice.ToString("C")</button></td>
                                     </tr>
                                 }
                             </tbody>
@@ -53,6 +53,7 @@
     private List<Car> cars;
 
     [Inject] HttpClient HttpClient { get; set; }
+    [Inject] NavigationManager NavigationManager { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -63,6 +64,8 @@
                 new Car { Id = 3, Name = "Hatchback", Model = "Ford Focus", WashPrice = 12.00m }
             };
     }
+
+    void GoToPayment() => NavigationManager.NavigateTo("/payment");
 
     class Car
     {
