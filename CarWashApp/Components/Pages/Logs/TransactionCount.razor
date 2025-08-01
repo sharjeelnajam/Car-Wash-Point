@@ -1,0 +1,32 @@
+@page "/transaction-count"
+@using CarWashApp.Responses.Logs.TransactionCount
+
+<PageTitle>Transaction Count</PageTitle>
+
+<h3>Transaction Count</h3>
+
+<table class="table table-bordered table-striped">
+    <thead class="table-primary">
+        <tr>
+            <th>Index Size</th>
+            <th>Response Code</th>
+            <th>Response Log Count</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>@dummy.IndexSize</td>
+            <td>@dummy.ResponseCode</td>
+            <td>@dummy.ResponseLogCount</td>
+        </tr>
+    </tbody>
+</table>
+
+@code {
+    private BasicResponse dummy = new()
+    {
+        IndexSize = 10,
+        ResponseCode = 200,
+        ResponseLogCount = 5
+    };
+}

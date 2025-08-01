@@ -1,0 +1,68 @@
+﻿@page "/admin-panel"
+@using CarWashApp.Responses.Logs.TransactionList
+@using CarWashPoint.Responses.Logs.TransactionList
+
+<h3 class="mb-4 text-primary"><i class="bi bi-gear-fill me-2"></i>Admin Panel</h3>
+
+<div class="card shadow-lg border-0 mb-5">
+    <div class="card-header bg-gradient-primary text-white d-flex align-items-center">
+        <i class="bi bi-list-columns-reverse me-2"></i>
+        <span class="fs-5">Transaction Logs</span>
+    </div>
+    <div class="card-body p-0">
+        @if (transactionLogs == null)
+        {
+            <div class="d-flex justify-content-center align-items-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else if (!transactionLogs.Any())
+        {
+            <div class="alert alert-info m-4">No transaction logs found.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-primary">
+                        <tr>
+                            <th><i class="bi bi-calendar-event me-1"></i>Timestamp</th>
+                            <th><i class="bi bi-hash me-1"></i>Transaction ID</th>
+                            <th><i class="bi bi-currency-dollar me-1"></i>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in transactionLogs)
+                        {
+                            <tr class="table-row">
+                                <td><span class="badge bg-light text-dark px-2 py-1">@log.Timestamp</span></td>
+                                <td><span class="fw-semibold">@log.TransactionId</span></td>
+                                <td><span class="fw-bold text-success">@log.Value</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<TransactionLog> transactionLogs;
+
+    protected override Task OnInitializedAsync()
+    {
+        // Static example data
+        transactionLogs = new List<TransactionLog>
+        {
+            new TransactionLog { Timestamp = "2024-06-01 10:00:00", TransactionId = "TXN001", Value = 500 },
+            new TransactionLog { Timestamp = "2024-06-01 11:15:00", TransactionId = "TXN002", Value = 300 },
+            new TransactionLog { Timestamp = "2024-06-01 12:30:00", TransactionId = "TXN003", Value = 700 },
+            new TransactionLog { Timestamp = "2024-06-02 11:30:00", TransactionId = "TXN004", Value = 800 },
+            new TransactionLog { Timestamp = "2024-06-02 07:30:00", TransactionId = "TXN005", Value = 900 }
+        };
+        return Task.CompletedTask;
+    }
+}

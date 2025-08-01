@@ -1,0 +1,68 @@
+@page "/transaction-log"
+@using CarWashApp.Responses.Logs.TransactionLog
+
+<PageTitle>Transaction Log</PageTitle>
+
+<h3>Transaction Log</h3>
+
+<table class="table table-bordered table-striped">
+    <thead class="table-primary">
+        <tr>
+            <th>Timestamp</th>
+            <th>Transaction Type</th>
+            <th>Transaction Value</th>
+            <th>Type Code</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var log in dummy.ResponseLogList)
+        {
+            <tr>
+                <td>@log.Timestamp</td>
+                <td>@log.TransactionType</td>
+                <td>@log.TransactionValue</td>
+                <td>@log.TypeCode</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h5>Summary</h5>
+<table class="table table-bordered">
+    <tbody>
+        <tr><th>Complete</th><td>@dummy.Summary.Complete</td></tr>
+        <tr><th>Payin Balance</th><td>@dummy.Summary.PayinBalance</td></tr>
+        <tr><th>Payin Received</th><td>@dummy.Summary.PayinReceived</td></tr>
+        <tr><th>Payin Requested</th><td>@dummy.Summary.PayinRequested</td></tr>
+        <tr><th>Payout Balance</th><td>@dummy.Summary.PayoutBalance</td></tr>
+        <tr><th>Payout Made</th><td>@dummy.Summary.PayoutMade</td></tr>
+        <tr><th>Payout Requested</th><td>@dummy.Summary.PayoutRequested</td></tr>
+        <tr><th>Transaction Balance</th><td>@dummy.Summary.TransactionBalance</td></tr>
+        <tr><th>UID</th><td>@dummy.Summary.Uid</td></tr>
+    </tbody>
+</table>
+
+@code {
+    private Responses.Logs.TransactionLog.TransactionLog dummy = new()
+    {
+        ResponseCode = 200,
+        ResponseData = "Sample Data",
+        ResponseLogList = new List<LogEntry>
+        {
+            new() { Timestamp = "2024-06-01 10:00:00", TransactionType = "Payment", TransactionValue = 500, TypeCode = 1 },
+            new() { Timestamp = "2024-06-01 11:00:00", TransactionType = "Refund", TransactionValue = 200, TypeCode = 2 }
+        },
+        Summary = new CarWashPoint.Responses.Logs.TransactionLog.Summary
+        {
+            Complete = true,
+            PayinBalance = 1000,
+            PayinReceived = 800,
+            PayinRequested = 1200,
+            PayoutBalance = 200,
+            PayoutMade = 150,
+            PayoutRequested = 180,
+            TransactionBalance = 820,
+            Uid = "UID001"
+        }
+    };
+}

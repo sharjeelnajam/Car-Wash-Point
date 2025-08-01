@@ -1,0 +1,66 @@
+@page "/transaction-list-datetime"
+@using CarWashApp.Responses.Logs.TransactionListDateTime
+
+<PageTitle>Transaction List DateTime</PageTitle>
+
+<h3>Transaction List DateTime</h3>
+
+<table class="table table-bordered table-striped">
+    <thead class="table-primary">
+        <tr>
+            <th>Timestamp</th>
+            <th>Transaction Type</th>
+            <th>Transaction Value</th>
+            <th>Type Code</th>
+            <th>UID</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var log in dummy.ResponseLogList)
+        {
+            <tr>
+                <td>@log.Timestamp</td>
+                <td>@log.TransactionType</td>
+                <td>@log.TransactionValue</td>
+                <td>@log.TypeCode</td>
+                <td>@log.Uid</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h5>Summary</h5>
+<table class="table table-bordered">
+    <tbody>
+        <tr><th>Cash Paid In</th><td>@dummy.Summary.CashPaidIn</td></tr>
+        <tr><th>Cash Paid Out</th><td>@dummy.Summary.CashPaidOut</td></tr>
+        <tr><th>Payments Balance</th><td>@dummy.Summary.PaymentsBalance</td></tr>
+        <tr><th>Payments Cancelled</th><td>@dummy.Summary.PaymentsCancelled</td></tr>
+        <tr><th>Payments Requested</th><td>@dummy.Summary.PaymentsRequested</td></tr>
+        <tr><th>Refunds Out</th><td>@dummy.Summary.RefundsOut</td></tr>
+        <tr><th>Total Requested</th><td>@dummy.Summary.TotalRequested</td></tr>
+    </tbody>
+</table>
+
+@code {
+    private Responses.Logs.TransactionListDateTime.TransactionListDateTime dummy = new()
+    {
+        ResponseCode = 200,
+        ResponseData = "Sample Data",
+        ResponseLogList = new List<LogEntry>
+        {
+            new() { Timestamp = "2024-06-01 10:00:00", TransactionType = "Payment", TransactionValue = 500, TypeCode = 1, Uid = "UID001" },
+            new() { Timestamp = "2024-06-01 11:00:00", TransactionType = "Refund", TransactionValue = 200, TypeCode = 2, Uid = "UID002" }
+        },
+        Summary = new CarWashPoint.Responses.Logs.TransactionListDateTime.Summary
+        {
+            CashPaidIn = 1000,
+            CashPaidOut = 200,
+            PaymentsBalance = 800,
+            PaymentsCancelled = 0,
+            PaymentsRequested = 1000,
+            RefundsOut = 200,
+            TotalRequested = 1200
+        }
+    };
+}
