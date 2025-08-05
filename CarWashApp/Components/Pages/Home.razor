@@ -10,11 +10,36 @@
                     <h1 class="mb-4">Welcome to Car Wash Point!</h1>
                     <p class="mb-4">Please choose an option below:</p>
                     <div class="d-grid gap-3">
-                        <NavLink class="btn btn-primary btn-lg" href="car-details">Car Details</NavLink>
-                        <NavLink class="btn btn-success btn-lg" href="payment">Payment</NavLink>
+                        <div class="d-flex">
+                            <input @bind-value="seachText" class="form-control me-2" type="search" placeholder="Search..." aria-label="Search">
+                            <button @onclick="SearchCar" class="btn btn-outline-primary">Search</button>
+                        </div>
+                        <NavLink class="btn btn-primary btn-lg" href="car-details">Car Registration</NavLink>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+@code {
+    [Inject] NavigationManager NavigationManager { get; set; }
+    string seachText = string.Empty;
+
+    void SearchCar()
+    {
+        if (!string.IsNullOrEmpty(seachText))
+        {
+            var car = DummyCars.GetCars().Find(car => car.LicensePlate == seachText.Trim());
+            if (car != null)
+            {
+                NavigationManager.NavigateTo($"car-detail/{car.LicensePlate}");
+            }
+            else
+            {
+                // Handle case where car is not found
+                Console.WriteLine("Car not found");
+            }
+        }
+    }
+}

@@ -1,0 +1,48 @@
+﻿@page "/car-detail/{licensePlate}"
+@using CarWashApp.Models
+<h3>CarDetail</h3>
+
+@if (car == null)
+{
+    <div class="alert alert-danger">Car not found!</div>
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h4>@car.Company @car.Name (@car.Year)</h4>
+            <p>
+                <strong>License Plate:</strong> @car.LicensePlate <br />
+                <strong>Color:</strong> @car.Color <br />
+                <strong>Loyalty Points:</strong> @car.LoyaltyPoints
+            </p>
+            <button class="btn btn-success" @onclick="GoToPayment">Go Payment</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string licensePlate { get; set; }
+    [Inject] NavigationManager NavigationManager { get; set; }
+
+    private Car car;
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            // Load car by license plate
+            car = DummyCars.GetCars().Find(car => car.LicensePlate == licensePlate);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading car: {ex.Message}");
+            car = null; // Set to null if not found or error occurs
+        }
+    }
+
+    void GoToPayment()
+    {
+        NavigationManager.NavigateTo("payment");
+    }
+}

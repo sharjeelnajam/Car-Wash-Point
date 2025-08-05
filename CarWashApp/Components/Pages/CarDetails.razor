@@ -1,4 +1,5 @@
 ﻿@page "/car-details"
+@using CarWashApp.Models
 
 <div class="container mt-5">
     <div class="row justify-content-center">
@@ -36,8 +37,8 @@
                                 {
                                     <tr>
                                         <td class="py-3"><i class="bi bi-car-front me-2 text-secondary"></i>@car.Name</td>
-                                        <td class="py-3">@car.Model</td>
-                                        <td class="py-3"><button @onclick="GoToPayment" class="badge bg-success fs-4">@car.WashPrice.ToString("C")</button></td>
+                                        <td class="py-3">@car.LicensePlate</td>
+                                        <td class="py-3"><button @onclick="GoToPayment" class="badge bg-success fs-4">$25</button></td>
                                     </tr>
                                 }
                             </tbody>
@@ -57,21 +58,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        cars = new List<Car>
-            {
-                new Car { Id = 1, Name = "Sedan", Model = "Toyota Camry", WashPrice = 15.00m },
-                new Car { Id = 2, Name = "SUV", Model = "Honda CR-V", WashPrice = 20.00m },
-                new Car { Id = 3, Name = "Hatchback", Model = "Ford Focus", WashPrice = 12.00m }
-            };
+        cars = DummyCars.GetCars();
     }
 
     void GoToPayment() => NavigationManager.NavigateTo("/payment");
-
-    class Car
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Model { get; set; }
-        public decimal WashPrice { get; set; }
-    }
 }
