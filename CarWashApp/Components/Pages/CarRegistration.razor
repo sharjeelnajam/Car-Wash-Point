@@ -1,0 +1,69 @@
+﻿@page "/car-registration"
+@using System.ComponentModel.DataAnnotations
+@using CarWashApp.Models
+@inject NavigationManager NavigationManager
+
+<EditForm Model="@car" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="container mt-4">
+        <h2>Car Registration</h2>
+
+        <!-- License Plate -->
+        <div class="mb-3">
+            <label class="form-label">License Plate <span class="text-danger">*</span></label>
+            <InputText class="form-control" @bind-Value="car.LicensePlate" />
+            <ValidationMessage For="@(() => car.LicensePlate)" />
+        </div>
+
+        <!-- Company -->
+        <div class="mb-3">
+            <label class="form-label">Company</label>
+            <InputText class="form-control" @bind-Value="car.Company" />
+            <ValidationMessage For="@(() => car.Company)" />
+        </div>
+
+        <!-- Name -->
+        <div class="mb-3">
+            <label class="form-label">Car Name <span class="text-danger">*</span></label>
+            <InputText class="form-control" @bind-Value="car.Name" />
+            <ValidationMessage For="@(() => car.Name)" />
+        </div>
+
+        <!-- Year -->
+        <div class="mb-3">
+            <label class="form-label">Year</label>
+            <InputNumber class="form-control" @bind-Value="car.Year" />
+            <ValidationMessage For="@(() => car.Year)" />
+        </div>
+
+        <!-- Color -->
+        <div class="mb-3">
+            <label class="form-label">Color</label>
+            <InputText class="form-control" @bind-Value="car.Color" />
+            <ValidationMessage For="@(() => car.Color)" />
+        </div>
+
+        <!-- Loyalty Points -->
+        <div class="mb-3">
+            <label class="form-label">Loyalty Points</label>
+            <InputNumber class="form-control" @bind-Value="car.LoyaltyPoints" />
+            <ValidationMessage For="@(() => car.LoyaltyPoints)" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Register Car</button>
+    </div>
+</EditForm>
+
+@code {
+    private Car car = new Car();
+
+    private void HandleValidSubmit()
+    {
+        // You can save to database or call an API here
+        Console.WriteLine($"Car Registered: {car.LicensePlate} - {car.Name}");
+        DummyCars.AddCar(car); // Assuming DummyCars is a static class managing car data
+        NavigationManager.NavigateTo($"car-detail/{car.LicensePlate}"); // Navigate to car list or confirmation
+    }
+}
