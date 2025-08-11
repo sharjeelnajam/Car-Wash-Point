@@ -1,6 +1,8 @@
 ﻿@page "/car-registration"
 @using System.ComponentModel.DataAnnotations
 @using CarWashApp.Models
+@using CarWashApp.Models.DTOs
+@using CarWashApp.Services
 @inject NavigationManager NavigationManager
 
 <EditForm Model="@car" OnValidSubmit="HandleValidSubmit">
@@ -57,13 +59,15 @@
 </EditForm>
 
 @code {
-    private Car car = new Car();
+    [Inject] ICarService CarService { get; set; }
+
+    private CarDto car = new CarDto();
 
     private void HandleValidSubmit()
     {
         // You can save to database or call an API here
         Console.WriteLine($"Car Registered: {car.LicensePlate} - {car.Name}");
-        DummyCars.AddCar(car); // Assuming DummyCars is a static class managing car data
+        CarService.AddCar(car); // Assuming DummyCars is a static class managing car data
         NavigationManager.NavigateTo($"car-detail/{car.LicensePlate}"); // Navigate to car list or confirmation
     }
 }

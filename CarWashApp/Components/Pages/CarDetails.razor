@@ -1,5 +1,7 @@
 ﻿@page "/car-details"
 @using CarWashApp.Models
+@using CarWashApp.Models.DTOs
+@using CarWashApp.Services
 
 <div class="container mt-5">
     <div class="row justify-content-center">
@@ -51,14 +53,15 @@
 </div>
 
 @code {
-    private List<Car> cars;
+    private List<CarDto> cars;
 
     // [Inject] HttpClient HttpClient { get; set; }
     [Inject] NavigationManager NavigationManager { get; set; }
+    [Inject] ICarService CarService { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        cars = DummyCars.GetCars();
+        cars = CarService.GetAllCars();
     }
 
     void GoToPayment() => NavigationManager.NavigateTo("/payment");
