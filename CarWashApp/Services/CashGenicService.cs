@@ -1,5 +1,4 @@
-﻿using CarWashApp;
-using CarWashApp.Models;
+﻿using CarWashApp.Responses;
 using Newtonsoft.Json;
 using System.Text;
 

@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace CarWashApp.Models
+namespace CarWashApp.Responses
 {
     public class PaymentDevice
     {

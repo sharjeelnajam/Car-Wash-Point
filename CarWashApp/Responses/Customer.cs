@@ -1,4 +1,4 @@
-﻿namespace CarWashApp.Models
+﻿namespace CarWashApp.Responses
 {
     public class Customer
     {

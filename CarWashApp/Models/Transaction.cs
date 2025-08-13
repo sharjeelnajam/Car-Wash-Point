@@ -1,26 +1,18 @@
-﻿using Newtonsoft.Json;
-
-namespace CarWashApp.Models
+﻿namespace CarWashApp.Models
 {
     public class Transaction
     {
-        [JsonProperty("transactionType")]
-        public string TransactionType { get; set; }  // e.g., "PayAmount"
-
-        [JsonProperty("requestAmount")]
-        public int RequestAmount { get; set; }
-
-        [JsonProperty("transactionId")]
-        public string TransactionId { get; set; }
-
-        [JsonProperty("cashIn")]
-        public int CashIn { get; set; }
-
-        [JsonProperty("cashOut")]
-        public int CashOut { get; set; }
-
-        [JsonProperty("timeStamp")]
-        public DateTime Timestamp { get; set; }
+        public int Id { get; set; }             // Primary key
+        public decimal Amount { get; set; }     // Amount of cash
+        public DateTime Date { get; set; }      // Date of transaction
+        public PaymentMethod PaymentMethod { get; set; }  // e.g., Cash, Card, etc.
+        public string Description { get; set; } // Optional: what the payment is for
     }
 
+    public enum PaymentMethod
+    {
+        Cash,
+        Card,
+        Other
+    }
 }

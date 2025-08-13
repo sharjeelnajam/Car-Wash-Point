@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace CarWashApp
+namespace CarWashApp.Responses
 {
     public class SessionResponse
     {

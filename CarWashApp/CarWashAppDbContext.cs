@@ -8,5 +8,13 @@ public class CarWashAppDbContext : DbContext
     {
     }
 
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Transaction>()
+            .Property(t => t.PaymentMethod)
+            .HasConversion<string>();
+    }
+
     public DbSet<Car> Cars { get; set; }
+    public DbSet<Transaction> Transactions { get; set; }
 }
