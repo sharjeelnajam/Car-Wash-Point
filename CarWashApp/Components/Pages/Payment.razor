@@ -1,4 +1,6 @@
 ﻿@page "/payment"
+@using Blazored.Toast.Services
+@using CarWashApp.Models
 
 <div class="container mt-5">
     <div class="row justify-content-center">
@@ -10,10 +12,12 @@
                 <div class="card-body text-center">
                     <p class="lead mb-4">Select your preferred payment method:</p>
                     <div class="d-flex flex-column gap-4 align-items-center">
-                        <button class="btn btn-primary btn-lg w-75" type="button">
+                        <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Cash))
+                            class="btn btn-primary btn-lg w-75" type="button">
                             <i class="bi bi-cash-coin me-2"></i>Cash
                         </button>
-                        <button class="btn btn-info btn-lg w-75 text-white" type="button">
+                        <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Card))
+                            class="btn btn-info btn-lg w-75 text-white" type="button">
                             <i class="bi bi-credit-card-2-front me-2"></i>Card
                         </button>
                     </div>
@@ -24,5 +28,10 @@
 </div>
 
 @code {
+    [Inject] IToastService ToastService { get; set; }
 
+    void PaymentMethodSelected(PaymentMethod method)
+    {
+        ToastService.ShowSuccess($"You have successfully paid amount using {method.ToString()}");
+    }
 }

@@ -1,3 +1,4 @@
+using Blazored.Toast;
 using CarWashApp;
 using CarWashApp.Components;
 using CarWashApp.Repositories;
@@ -11,6 +12,7 @@ builder.Services.AddDbContext<CarWashAppDbContext>(options => options.UseSqlServ
 builder.Services.AddScoped<ICarRepository, CarRepository>();
 builder.Services.AddScoped<ICarService, CarService>();
 
+builder.Services.AddBlazoredToast();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
