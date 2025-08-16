@@ -1,0 +1,76 @@
+﻿@using CarWashApp.Models
+@using CarWashApp.Models.DTOs
+@using CarWashApp.Services
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="flex-grow-1 text-center">
+        <h4 class="text-primary mb-0">
+            <i class="bi bi-car-front-fill me-2"></i>Cars
+        </h4>
+    </div>
+    <div>
+        <span class="badge bg-primary fs-6">Total: @cars?.Count()</span>
+    </div>
+</div>
+
+<div class="card shadow-lg border-0 mb-5">
+    
+
+    <div class="card-body p-0">
+        @if (cars == null)
+        {
+            <div class="d-flex justify-content-center align-items-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else if (!cars.Any())
+        {
+            <div class="alert alert-info m-4">No cars available.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-primary">
+                        <tr>
+                            <th><i class="bi bi-hash me-1"></i>ID</th>
+                            <th><i class="bi bi-car-front me-1"></i>Name</th>
+                            <th><i class="bi bi-building me-1"></i>Company</th>
+                            <th><i class="bi bi-calendar-event me-1"></i>Year</th>
+                            <th><i class="bi bi-palette me-1"></i>Color</th>
+                            <th><i class="bi bi-key me-1"></i>License Plate</th>
+                            <th><i class="bi bi-stars me-1"></i>Loyalty Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var car in cars)
+                        {
+                            <tr>
+                                <td>@car.Id</td>
+                                <td class="fw-semibold">@car.Name</td>
+                                <td>@car.Company</td>
+                                <td>@car.Year</td>
+                                <td>@car.Color</td>
+                                <td><span class="badge bg-light text-dark">@car.LicensePlate</span></td>
+                                <td class="fw-bold text-success">@car.LoyaltyPoints</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Inject] ICarService CarService { get; set; }
+    private List<CarDto> cars;
+
+    protected override Task OnInitializedAsync()
+    {
+        cars = CarService.GetAllCars();
+        return Task.CompletedTask;
+    }
+}
