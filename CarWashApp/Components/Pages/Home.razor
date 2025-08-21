@@ -12,7 +12,8 @@
                     <p class="mb-4">Please choose an option below:</p>
                     <div class="d-grid gap-3">
                         <div class="d-flex">
-                            <input @bind-value="seachText" class="form-control me-2" type="search" placeholder="Search..." aria-label="Search">
+                            <input value="@searchText" @oninput="@(e => searchText = e.Value?.ToString()?.ToUpperInvariant())"
+                                   class="form-control me-2" type="search" placeholder="Search..." aria-label="Search">
                             <button @onclick="SearchCar" class="btn btn-outline-primary">Search</button>
                         </div>
                         <NavLink class="btn btn-primary btn-lg" href="car-registration">Car Registration</NavLink>
@@ -26,13 +27,13 @@
 @code {
     [Inject] NavigationManager NavigationManager { get; set; }
     [Inject] ICarService CarService { get; set; }
-    string seachText = string.Empty;
+    string searchText = string.Empty;
 
     void SearchCar()
     {
-        if (!string.IsNullOrEmpty(seachText))
+        if (!string.IsNullOrEmpty(searchText))
         {
-            var car = CarService.GetAllCars().Find(car => car.LicensePlate == seachText.Trim());
+            var car = CarService.GetAllCars().Find(car => car.LicensePlate == searchText.Trim());
             if (car != null)
             {
                 NavigationManager.NavigateTo($"car-detail/{car.LicensePlate}");

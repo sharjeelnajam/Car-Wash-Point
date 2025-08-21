@@ -15,15 +15,10 @@
         <!-- License Plate -->
         <div class="mb-3">
             <label class="form-label">License Plate <span class="text-danger">*</span></label>
-            <InputText class="form-control" @bind-Value="car.LicensePlate" />
+            <InputText class="form-control"
+                       @bind-Value="car.LicensePlate"
+                       @oninput="@(e => car.LicensePlate = e.Value?.ToString()?.ToUpperInvariant())" />
             <ValidationMessage For="@(() => car.LicensePlate)" />
-        </div>
-
-        <!-- Company -->
-        <div class="mb-3">
-            <label class="form-label">Company</label>
-            <InputText class="form-control" @bind-Value="car.Company" />
-            <ValidationMessage For="@(() => car.Company)" />
         </div>
 
         <!-- Name -->
@@ -31,13 +26,6 @@
             <label class="form-label">Car Name <span class="text-danger">*</span></label>
             <InputText class="form-control" @bind-Value="car.Name" />
             <ValidationMessage For="@(() => car.Name)" />
-        </div>
-
-        <!-- Year -->
-        <div class="mb-3">
-            <label class="form-label">Year</label>
-            <InputNumber class="form-control" @bind-Value="car.Year" />
-            <ValidationMessage For="@(() => car.Year)" />
         </div>
 
         <!-- Color -->

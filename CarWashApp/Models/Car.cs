@@ -11,14 +11,9 @@ namespace CarWashApp.Models
         [StringLength(50)]
         public string LicensePlate { get; set; } // Unique identifier
 
-        [StringLength(50)]
-        public string Company { get; set; } // e.g., Toyota
-
         [Required]
         [StringLength(50)]
         public string Name { get; set; } // e.g., Corolla
-
-        public int Year { get; set; }
 
         public string Color { get; set; }
 

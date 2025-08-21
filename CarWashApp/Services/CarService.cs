@@ -37,9 +37,7 @@ namespace CarWashApp.Services
             if (existingCar != null)
             {
                 existingCar.LicensePlate = car.LicensePlate;
-                existingCar.Company = car.Company;
                 existingCar.Name = car.Name;
-                existingCar.Year = car.Year;
                 existingCar.Color = car.Color;
                 existingCar.LoyaltyPoints = car.LoyaltyPoints;
                 carRepository.UpdateCar(existingCar);

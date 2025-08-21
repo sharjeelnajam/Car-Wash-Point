@@ -8,11 +8,7 @@ namespace CarWashApp.Models.DTOs
 
         public string LicensePlate { get; set; } // Unique identifier
 
-        public string Company { get; set; } // e.g., Toyota
-
         public string Name { get; set; } // e.g., Corolla
-
-        public int Year { get; set; }
 
         public string Color { get; set; }
 

@@ -11,9 +11,7 @@ namespace CarWashApp.Models.Mapping
             {
                 Id = car.Id,
                 LicensePlate = car.LicensePlate,
-                Company = car.Company,
                 Name = car.Name,
-                Year = car.Year,
                 Color = car.Color,
                 LoyaltyPoints = car.LoyaltyPoints
             };
@@ -25,9 +23,7 @@ namespace CarWashApp.Models.Mapping
             {
                 Id = dto.Id,
                 LicensePlate = dto.LicensePlate,
-                Company = dto.Company,
                 Name = dto.Name,
-                Year = dto.Year,
                 Color = dto.Color,
                 LoyaltyPoints = dto.LoyaltyPoints
             };
