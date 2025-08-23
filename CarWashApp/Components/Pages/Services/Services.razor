@@ -1,0 +1,167 @@
+﻿@page "/services"
+@using System.Diagnostics.CodeAnalysis
+
+<h3>Services</h3>
+
+<div class="menu-grid" role="list">
+    @if (Items is not null)
+    {
+        @foreach (var item in Items)
+        {
+            <button class="tile"
+                    role="listitem"
+                    type="button"
+                    @onclick="() => SelectVehicle(item)"
+                    aria-label="@item.Title">
+                <div class="icon-wrap">
+                    @if (!string.IsNullOrWhiteSpace(item.IconUrl))
+                    {
+                        <img src="@item.IconUrl" alt="" class="icon" />
+                    }
+                </div>
+
+                <div class="title">@item.Title</div>
+                @if (!string.IsNullOrWhiteSpace(item.Subtitle))
+                {
+                    <div class="subtitle">@item.Subtitle</div>
+                }
+            </button>
+        }
+    }
+    else
+    {
+        @* Skeleton placeholders *@
+        @for (var i = 0; i < 8; i++)
+        {
+            <div class="tile skeleton">
+                <div class="icon-wrap"></div>
+                <div class="title skeleton-bar"></div>
+            </div>
+        }
+    }
+</div>
+
+
+<Popup IsOpen="showPopup"
+       IsOpenChanged="val => showPopup = val"
+       Title="@selectedVehicle.Title">
+
+    <ChildContent>
+        <pre class="desc-text">@selectedVehicle.Description</pre>
+    </ChildContent>
+
+    <FooterContent>
+        <button class="btn" @onclick="() => showPopup = false">Cancel</button>
+        <button class="btn primary" @onclick="Confirm">Confirm</button>
+    </FooterContent>
+</Popup>
+
+@code {
+    [Inject] NavigationManager NavigationManager { get; set; }
+    private bool showPopup = false;
+    private VehicleType selectedVehicle = new();
+    public class VehicleType
+    {
+        public string Title { get; set; } = "";
+        public string? Subtitle { get; set; }
+        public string? Description { get; set; }
+        public string? IconUrl { get; set; }
+    }
+
+    [Parameter, NotNull]
+    public List<VehicleType>? Items { get; set; } = new List<VehicleType>()
+    {
+        new VehicleType()
+        {
+            Title = "Car",
+            Subtitle = "Wash, Wheels & Blow Dry £8",
+            IconUrl = "img/car.png",
+            Description = @"Wash, Wheels & Blow Dry £8
+
+Extra Service Singular or Multiple
+No Extra Service On £0
+Tyre Shine £2
+Tango Spray Wax £5
+Ceramic Spray Protection £8
+Windows £4
+Dashboard £5
+Vacuum £5
+Half tar Removal £10
+Full Tar removal £20
+
+Extra Charge Dirty Car £5
+Extra Charge Dirty Car £10
+Extra Charge Dirty Car £20
+
+Scratch Removal £15 (please include option to purchase multiple scratch removal as there can be more than one Scratch)
+Seat Wash £5 (please include option to purchase multiple Seat Wash as there can be more than one Seat wash)"
+        },
+        new VehicleType()
+        {
+            Title = "Van",
+            Subtitle = "Wash, Wheels & Blow Dry £8 - £12",
+            IconUrl = "img/truck.png",
+            Description = @"Small Wash, Wheels & Blow Dry £8
+
+Medium Wash, Wheels & Blow Dry £9
+Large Wash, Wheels & Blow Dry £12
+
+Extra Service Singular or Multiple
+No Extra Service On £0
+Back Interior Wash £6
+Tyre Shine £2
+Tango Spray Wax £5
+Ceramic Spray Protection £8
+Windows £4
+Dashboard £5
+Vacuum £5
+Half Tar Removal £15
+Full Tar removal £30
+
+Extra Charge Dirty Car £5
+Extra Charge Dirty Car £10
+Extra Charge Dirty Car £20
+
+Scratch Removal £15 (please include option to purchase multiple scratch removal as there can be more than one Scratch)
+Seat Wash £5 (please include option to purchase multiple Seat Wash as there can be more than one Seat wash)"
+        },
+        new VehicleType()
+        {
+            Title = "Taxi",
+            Subtitle = "Wash, Wheels & Blow Dry £7",
+            IconUrl = "img/taxi.png",
+            Description = @"Wash, Wheels & Blow Dry £7
+
+Extra Service Singular or Multiple
+No Extra Service On £0
+Tyre Shine £2
+Tango Spray Wax £5
+Ceramic Spray Protection £8
+Windows £4
+Dashboard £5
+Vacuum £5
+Half tar Removal £7
+Full Tar removal £15
+
+Extra Charge Dirty Car £5
+Extra Charge Dirty Car £10
+Extra Charge Dirty Car £20
+
+Scratch Removal £15 (please include option to purchase multiple scratch removal as there can be more than one Scratch)
+Seat Wash £5 (please include option to purchase multiple Seat Wash as there can be more than one Seat wash)"
+        },
+    };
+
+    private void Confirm()
+    {
+        // Logic to handle confirmation
+        showPopup = false;
+        NavigationManager.NavigateTo("payment");
+    }
+
+    private void SelectVehicle(VehicleType vehicle)
+    {
+        showPopup = true;
+        selectedVehicle = vehicle;
+    }
+}

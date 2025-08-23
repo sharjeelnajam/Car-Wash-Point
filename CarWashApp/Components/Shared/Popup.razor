@@ -1,0 +1,48 @@
+﻿@if (IsOpen)
+{
+    <div class="popup-backdrop" @onclick="OnBackdropClick"></div>
+
+    <div class="popup" role="dialog" aria-modal="true">
+        <button class="popup-close" @onclick="Close" aria-label="Close">×</button>
+
+        @if (!string.IsNullOrWhiteSpace(Title))
+        {
+            <h3 class="popup-title">@Title</h3>
+        }
+
+        <div class="popup-body">
+            @ChildContent
+        </div>
+
+        @if (FooterContent is not null)
+        {
+            <div class="popup-footer">
+                @FooterContent
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public bool CloseOnBackdropClick { get; set; } = true;
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(IsOpen);
+    }
+
+    private async Task OnBackdropClick()
+    {
+        if (CloseOnBackdropClick)
+        {
+            await Close();
+        }
+    }
+}
