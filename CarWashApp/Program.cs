@@ -3,6 +3,7 @@ using CarWashApp;
 using CarWashApp.Components;
 using CarWashApp.Repositories;
 using CarWashApp.Services;
+using CarWashApp.Services.HttpClientServices;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,13 @@ builder.Services.AddScoped<ICarRepository, CarRepository>();
 builder.Services.AddScoped<ICarService, CarService>();
 
 builder.Services.AddBlazoredToast();
+
+builder.Services.AddHttpClient<CWPClient>(client =>
+{
+    var baseUrl = builder.Configuration["Api:BaseUrl"] ?? throw new ArgumentNullException("BaseUrl cannot be null");
+    client.BaseAddress = new Uri(baseUrl);
+})
+    .AddHttpMessageHandler<TokenHandler>();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
