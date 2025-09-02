@@ -1,39 +1,74 @@
 ﻿@page "/payment"
+@using Blazored.Toast.Configuration
 @using Blazored.Toast.Services
 @using CarWashApp.Models
+@using CarWashApp.Services.HttpClientServices
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <div class="card shadow-lg">
-                <div class="card-header bg-success text-white text-center">
-                    <h3 class="mb-0"><i class="bi bi-credit-card-2-front-fill me-2"></i>Payment Options</h3>
-                </div>
-                <div class="card-body text-center">
-                    <p class="lead mb-4">Select your preferred payment method:</p>
-                    <div class="d-flex flex-column gap-4 align-items-center">
-                        <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Cash))
-                            class="btn btn-primary btn-lg w-75" type="button">
-                            <i class="bi bi-cash-coin me-2"></i>Cash
-                        </button>
-                        <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Card))
-                            class="btn btn-info btn-lg w-75 text-white" type="button">
-                            <i class="bi bi-credit-card-2-front me-2"></i>Card
-                        </button>
+<button class="btn btn-lg btn-primary" @onclick="@(()=>NavigatationManager.NavigateTo("/"))"> Home</button>
+
+@if(isPaymentSelected)
+{
+    <div class="container d-flex justify-content-center align-items-center"
+         style="overflow: hidden;">
+
+        <div class="card shadow-lg p-5 text-center"
+             style="max-width: 500px; border-radius: 20px;">
+
+            <h2 class="mb-4" style="font-size: 2rem; font-weight: bold;">
+                Charges for car wash: <span style="color: #007bff;">@carWashCharges €</span>
+            </h2>
+
+            <p class="mb-3" style="font-size: 1.5rem; font-weight: 500;">
+                You have paid:
+            </p>
+
+            <input type="number"
+                   class="form-control form-control-lg text-center"
+                   placeholder="Enter amount"
+                   style="font-size: 1.5rem; border-radius: 12px;" />
+        </div>
+    </div>
+
+
+}
+else
+{
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow-lg">
+                    <div class="card-header bg-success text-white text-center">
+                        <h3 class="mb-0"><i class="bi bi-credit-card-2-front-fill me-2"></i>Payment Options</h3>
+                    </div>
+                    <div class="card-body text-center">
+                        <p class="lead mb-4">Select your preferred payment method:</p>
+                        <div class="d-flex flex-column gap-4 align-items-center">
+                            <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Cash))
+                                    class="btn btn-primary btn-lg w-75" type="button">
+                                <i class="bi bi-cash-coin me-2"></i>Cash
+                            </button>
+                            <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Card))
+                                    class="btn btn-info btn-lg w-75 text-white" type="button">
+                                <i class="bi bi-credit-card-2-front me-2"></i>Card
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
+}
 
 @code {
     [Inject] IToastService ToastService { get; set; }
-
-    void PaymentMethodSelected(PaymentMethod method)
+    [Inject] CWPClient ApiClient { get; set; }
+    [Inject] NavigationManager NavigatationManager { get; set; }
+    bool isPaymentSelected = false;
+    int carWashCharges = 8;
+    async Task PaymentMethodSelected(PaymentMethod method)
     {
-
-
+        // await ApiClient.PayAmount(39);
+        isPaymentSelected = true;
         ToastService.ShowSuccess($"You have successfully paid amount using {method.ToString()}");
     }
 }

@@ -5,9 +5,10 @@ namespace CarWashApp.Services.HttpClientServices
     public class CWPClient
     {
         HttpClient client;
-        public CWPClient(HttpClient httpClient)
+        public CWPClient(IConfiguration config, HttpClient httpClient)
         {
-            httpClient.BaseAddress = new Uri("");
+            //var baseUrl = config.GetSection("Api:BaseUrl").ToString() ?? throw new ArgumentNullException("Api:BaseUrl");
+            //httpClient.BaseAddress = new Uri(baseUrl);
             client = httpClient;
         }
 
@@ -25,6 +26,19 @@ namespace CarWashApp.Services.HttpClientServices
             HttpResponseMessage response = await client.PostAsync("/token", new FormUrlEncodedContent(body));
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync();
+        }
+
+        public async Task<dynamic> PayAmount(int value)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/session");
+
+            var req = await client.PostAsJsonAsync("/session", new
+            {
+                request = "PayAmount",
+                value = value
+            });
+
+            return req;
         }
     }
 }

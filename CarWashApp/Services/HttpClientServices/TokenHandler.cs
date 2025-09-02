@@ -5,15 +5,20 @@ namespace CarWashApp.Services.HttpClientServices
     public class TokenHandler : DelegatingHandler
     {
         readonly HttpClient httpClient;
+
+        string username;
+        string password;
+
         string? token;
 
         public TokenHandler(IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
             httpClient = httpClientFactory.CreateClient();
-            var baseUrl = configuration.GetSection("Api:BaseUrl").ToString() ?? throw new ArgumentNullException(nameof(configuration));
+            var baseUrl = configuration["Api:BaseUrl"].ToString() ?? throw new ArgumentNullException(nameof(configuration));
+            username = configuration["Api:BaseUrl"].ToString();
+            password = configuration["Api:BaseUrl"].ToString();
             httpClient.BaseAddress = new Uri(baseUrl);
-            httpClient.DefaultRequestHeaders.Add("content-type", "application/x-www-form-urlencoded");
-            httpClient.Timeout = TimeSpan.FromSeconds(10);
+            //httpClient.Timeout = TimeSpan.FromSeconds(10);
         }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -25,10 +30,11 @@ namespace CarWashApp.Services.HttpClientServices
                     var body = new Dictionary<string, string>()
                     {
                         { "grant_type", "password" },
-                        { "username", "<username>" },
-                        { "password", "<password>" }
+                        { "username", username },
+                        { "password", password }
                     };
-
+                    var content = new FormUrlEncodedContent(body);
+                    //content.Headers.Add("content-type", "application/x-www-form-urlencoded");
                     HttpResponseMessage response = await httpClient.PostAsync("/token", new FormUrlEncodedContent(body));
                     response.EnsureSuccessStatusCode();
                     token = await response.Content.ReadAsStringAsync();
