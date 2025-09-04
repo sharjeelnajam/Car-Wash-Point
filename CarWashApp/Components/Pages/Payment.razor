@@ -2,7 +2,10 @@
 @using Blazored.Toast.Configuration
 @using Blazored.Toast.Services
 @using CarWashApp.Models
+@using CarWashApp.Models.DTOs
+@using CarWashApp.Services
 @using CarWashApp.Services.HttpClientServices
+@using System.Text.Json
 
 <button class="btn btn-lg btn-primary" @onclick="@(()=>NavigatationManager.NavigateTo("/"))"> Home</button>
 
@@ -26,6 +29,53 @@
                    class="form-control form-control-lg text-center"
                    placeholder="Enter amount"
                    style="font-size: 1.5rem; border-radius: 12px;" />
+                   
+            <div class="mt-4 d-flex gap-2 justify-content-center flex-wrap">
+                <button @onclick="ProcessPayment" 
+                        class="btn btn-success btn-lg" 
+                        disabled="@isProcessing">
+                    @if (isProcessing)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        @:Processing...
+                    }
+                    else
+                    {
+                        <i class="bi bi-credit-card me-2"></i>
+                        @:Process Payment
+                    }
+                </button>
+                
+                <button @onclick="CancelPayment" 
+                        class="btn btn-warning btn-lg" 
+                        disabled="@isProcessing">
+                    @if (isProcessing)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        @:Cancelling...
+                    }
+                    else
+                    {
+                        <i class="bi bi-x-circle me-2"></i>
+                        @:Cancel Payment
+                    }
+                </button>
+                
+                <button @onclick="CloseSession" 
+                        class="btn btn-secondary btn-lg" 
+                        disabled="@isProcessing">
+                    @if (isProcessing)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        @:Closing...
+                    }
+                    else
+                    {
+                        <i class="bi bi-door-closed me-2"></i>
+                        @:Close Session
+                    }
+                </button>
+            </div>
         </div>
     </div>
 
@@ -62,13 +112,201 @@ else
 @code {
     [Inject] IToastService ToastService { get; set; }
     [Inject] CWPClient ApiClient { get; set; }
+    [Inject] ITransactionService TransactionService { get; set; }
     [Inject] NavigationManager NavigatationManager { get; set; }
     bool isPaymentSelected = false;
+    bool isProcessing = false;
     int carWashCharges = 8;
+    PaymentMethod selectedPaymentMethod;
     async Task PaymentMethodSelected(PaymentMethod method)
     {
-        // await ApiClient.PayAmount(39);
+        selectedPaymentMethod = method;
         isPaymentSelected = true;
-        ToastService.ShowSuccess($"You have successfully paid amount using {method.ToString()}");
+    }
+
+    async Task ProcessPayment()
+    {
+        isProcessing = true;
+        try
+        {
+            var response = await ApiClient.PayAmount(carWashCharges);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var responseContent = await response.Content.ReadAsStringAsync();
+                ToastService.ShowInfo($"API Response: {responseContent}");
+                
+                // Parse the JSON response to check for success code
+                try
+                {
+                    var responseData = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    
+                    if (responseData.TryGetProperty("responseCode", out var codeElement) && 
+                        codeElement.GetInt32() == 0)
+                    {
+                        // Success - responseCode is 0
+                        var dto = new TransactionDto
+                        {
+                            Amount = carWashCharges,
+                            Date = DateTime.UtcNow,
+                            Description = $"Paid {carWashCharges} using {selectedPaymentMethod.ToString()}",
+                            PaymentMethod = selectedPaymentMethod
+                        };
+                        TransactionService.AddTransaction(dto);
+                        ToastService.ShowSuccess($"You have successfully paid amount using {selectedPaymentMethod.ToString()}");
+                    }
+                    else
+                    {
+                        // Payment failed - responseCode is not 0
+                        var errorMessage = responseData.TryGetProperty("responseData", out var messageElement) 
+                            ? messageElement.GetString() 
+                            : "Payment failed";
+                        ToastService.ShowError($"Payment failed: {errorMessage}");
+                    }
+                }
+                catch (JsonException)
+                {
+                    // If JSON parsing fails, treat as success if HTTP status is OK
+                    var dto = new TransactionDto
+                    {
+                        Amount = carWashCharges,
+                        Date = DateTime.UtcNow,
+                        Description = $"Paid {carWashCharges} using {selectedPaymentMethod.ToString()}",
+                        PaymentMethod = selectedPaymentMethod
+                    };
+                    TransactionService.AddTransaction(dto);
+                    ToastService.ShowSuccess($"You have successfully paid amount using {selectedPaymentMethod.ToString()}");
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                ToastService.ShowError($"Payment failed. Status: {response.StatusCode}. Error: {errorContent}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Payment error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    async Task CancelPayment()
+    {
+        isProcessing = true;
+        try
+        {
+            ToastService.ShowInfo("Cancelling payment...");
+            
+            var response = await ApiClient.CancelPayment();
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var responseContent = await response.Content.ReadAsStringAsync();
+                ToastService.ShowInfo($"Cancel Payment Response: {responseContent}");
+                
+                // Parse the JSON response to check for success code
+                try
+                {
+                    var responseData = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    
+                    if (responseData.TryGetProperty("responseCode", out var codeElement) && 
+                        codeElement.GetInt32() == 0)
+                    {
+                        // Success - responseCode is 0
+                        ToastService.ShowSuccess("Payment cancelled successfully");
+                        isPaymentSelected = false; // Reset payment selection
+                    }
+                    else
+                    {
+                        // Cancel payment failed - responseCode is not 0
+                        var errorMessage = responseData.TryGetProperty("responseData", out var messageElement) 
+                            ? messageElement.GetString() 
+                            : "Failed to cancel payment";
+                        ToastService.ShowError($"Cancel payment failed: {errorMessage}");
+                    }
+                }
+                catch (JsonException)
+                {
+                    // If JSON parsing fails, treat as success if HTTP status is OK
+                    ToastService.ShowSuccess("Payment cancelled successfully");
+                    isPaymentSelected = false; // Reset payment selection
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                ToastService.ShowError($"Cancel payment failed. Status: {response.StatusCode}. Error: {errorContent}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Cancel payment error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    async Task CloseSession()
+    {
+        isProcessing = true;
+        try
+        {
+            ToastService.ShowInfo("Closing session...");
+            
+            var response = await ApiClient.CloseSession();
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var responseContent = await response.Content.ReadAsStringAsync();
+                ToastService.ShowInfo($"Close Session Response: {responseContent}");
+                
+                // Parse the JSON response to check for success code
+                try
+                {
+                    var responseData = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    
+                    if (responseData.TryGetProperty("responseCode", out var codeElement) && 
+                        codeElement.GetInt32() == 0)
+                    {
+                        // Success - responseCode is 0
+                        ToastService.ShowSuccess("Session closed successfully");
+                        isPaymentSelected = false; // Reset payment selection
+                    }
+                    else
+                    {
+                        // Close session failed - responseCode is not 0
+                        var errorMessage = responseData.TryGetProperty("responseData", out var messageElement) 
+                            ? messageElement.GetString() 
+                            : "Failed to close session";
+                        ToastService.ShowError($"Close session failed: {errorMessage}");
+                    }
+                }
+                catch (JsonException)
+                {
+                    // If JSON parsing fails, treat as success if HTTP status is OK
+                    ToastService.ShowSuccess("Session closed successfully");
+                    isPaymentSelected = false; // Reset payment selection
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                ToastService.ShowError($"Close session failed. Status: {response.StatusCode}. Error: {errorContent}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Close session error: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
     }
 }
