@@ -18,6 +18,7 @@ builder.Services.AddScoped<ICarRepository, CarRepository>();
 builder.Services.AddScoped<ICarService, CarService>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
 builder.Services.AddBlazoredToast();
 
@@ -259,7 +260,7 @@ builder.Services.AddHttpClient<CWPClient>((sp, c) =>
 //            if (!thumbprintMatches)
 //                return false;
 
-//            // Leaf cert date check (don’t accept expired/not-yet-valid).
+//            // Leaf cert date check (donï¿½t accept expired/not-yet-valid).
 //            var now = DateTimeOffset.UtcNow;
 //            if (now < cert.NotBefore || now > cert.NotAfter)
 //                return false;

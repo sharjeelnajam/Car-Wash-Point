@@ -1,0 +1,160 @@
+@page "/admin-login"
+@page "/admin"
+@using CarWashApp.Services
+@using Blazored.Toast.Services
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject IToastService ToastService
+
+<div class="container-fluid d-flex justify-content-center align-items-center min-vh-100">
+    <div class="card shadow-lg" style="max-width: 400px; width: 100%;">
+        <div class="card-header bg-primary text-white text-center">
+            <h4 class="mb-0">
+                <i class="bi bi-shield-lock me-2"></i>
+                Admin Login
+            </h4>
+        </div>
+        <div class="card-body p-4">
+            <form @onsubmit="HandleLogin" @onsubmit:preventDefault="true">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="bi bi-person"></i>
+                        </span>
+                        <input type="text" 
+                               class="form-control @(showError ? "is-invalid" : "")" 
+                               id="username" 
+                               @bind="username" 
+                               placeholder="Enter username"
+                               required />
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="bi bi-lock"></i>
+                        </span>
+                        <input type="password" 
+                               class="form-control @(showError ? "is-invalid" : "")" 
+                               id="password" 
+                               @bind="password" 
+                               placeholder="Enter password"
+                               required />
+                        <button class="btn btn-outline-secondary" 
+                                type="button" 
+                                @onclick="TogglePasswordVisibility">
+                            <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                        </button>
+                    </div>
+                    @if (showError)
+                    {
+                        <div class="invalid-feedback">
+                            Invalid username or password
+                        </div>
+                    }
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" 
+                            class="btn btn-primary btn-lg" 
+                            disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <span>Signing in...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-box-arrow-in-right me-2"></i>
+                            <span>Sign In</span>
+                        }
+                    </button>
+                </div>
+            </form>
+
+            <div class="text-center mt-3">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Default credentials: admin / admin123
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string username = "";
+    private string password = "";
+    private bool isLoading = false;
+    private bool showError = false;
+    private bool showPassword = false;
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            showError = true;
+            return;
+        }
+
+        isLoading = true;
+        showError = false;
+
+        try
+        {
+            var success = await AuthService.LoginAsync(username, password);
+            
+            if (success)
+            {
+                ToastService.ShowSuccess("Login successful!");
+                Navigation.NavigateTo("/admin-panel");
+            }
+            else
+            {
+                showError = true;
+                ToastService.ShowError("Invalid username or password");
+            }
+        }
+        catch (Exception ex)
+        {
+            showError = true;
+            ToastService.ShowError($"Login failed: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        showPassword = !showPassword;
+    }
+}
+
+<style>
+    .min-vh-100 {
+        min-height: 100vh;
+    }
+    
+    .card {
+        border-radius: 15px;
+    }
+    
+    .input-group-text {
+        background-color: #f8f9fa;
+        border-color: #ced4da;
+    }
+    
+    .btn-primary {
+        border-radius: 8px;
+    }
+    
+    .form-control:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+</style>
