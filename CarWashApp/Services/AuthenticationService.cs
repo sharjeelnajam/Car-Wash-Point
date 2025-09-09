@@ -24,9 +24,6 @@ namespace CarWashApp.Services
 
         public async Task<bool> LoginAsync(string username, string password)
         {
-            // Simulate async operation
-            await Task.Delay(100);
-
             // Simple hardcoded credentials for demo purposes
             // In production, you would validate against a database or external service
             if (username == "admin" && password == "admin123")
