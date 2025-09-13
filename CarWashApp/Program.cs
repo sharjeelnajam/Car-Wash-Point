@@ -342,7 +342,10 @@ builder.Services.AddHttpClient<CWPClient>((sp, c) =>
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents(options =>
+    {
+        options.DetailedErrors = true;   // <-- turn on while debugging
+    });
 
 var app = builder.Build();
 
