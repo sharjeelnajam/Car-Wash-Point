@@ -179,6 +179,9 @@ else
                     TransactionService.AddTransaction(dto);
                     ToastService.ShowSuccess($"You have successfully paid amount using {selectedPaymentMethod.ToString()}");
                 }
+
+
+
             }
             else
             {
@@ -309,6 +312,70 @@ else
         finally
         {
             isClosingSession = false;
+        }
+    }
+
+
+    public enum PaymentStatus
+    {
+        InProgress,
+        Successful,
+        Canceled,
+        Stopped,
+        Error
+    }
+
+    public async Task<PaymentStatus> PollForPaymentCompletion()
+    {
+        Console.WriteLine("Polling for payment status...");
+
+        while (true)
+        {
+            try
+            {
+                var response = await ApiClient.CheckPaymentStatus();
+                response.EnsureSuccessStatusCode();
+
+                var jsonResponse = await response.Content.ReadAsStringAsync();
+                using var jsonDoc = JsonDocument.Parse(jsonResponse);
+
+                if (jsonDoc.RootElement.TryGetProperty("responseCode", out var codeElement))
+                {
+                    int responseCode = codeElement.GetInt32();
+
+                    // Check for successful payment
+                    if (responseCode == 0) // REQUEST_SUCCESS_PAID
+                    {
+                        Console.WriteLine("Payment successful!");
+                        return PaymentStatus.Successful;
+                    }
+                    // Check for payment cancellation
+                    else if (responseCode == 8) // REQUEST_FAIL_CANCELLED
+                    {
+                        Console.WriteLine("Payment was canceled.");
+                        return PaymentStatus.Canceled;
+                    }
+                    // Check for a stopped session
+                    else if (responseCode == 10) // REQUEST_FAIL_SESSION_STOPPED
+                    {
+                        Console.WriteLine("Payment session has been stopped.");
+                        return PaymentStatus.Stopped;
+                    }
+                    else
+                    {
+                        // Payment is still in progress or in an undetermined state.
+                        Console.WriteLine($"Payment still in progress. Current status: {jsonResponse}");
+                    }
+                }
+
+                // Wait for 1 second before polling again to avoid excessive requests
+                await Task.Delay(1000);
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"An error occurred while checking status: {ex.Message}");
+                return PaymentStatus.Error;
+            }
         }
     }
 }

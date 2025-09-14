@@ -2,6 +2,7 @@
 using System.Net.Http;
 using System.Text.Json;
 using System.Text;
+using System.Net.Http.Headers;
 
 namespace CarWashApp.Services.HttpClientServices
 {
@@ -10,6 +11,7 @@ namespace CarWashApp.Services.HttpClientServices
         HttpClient client;
         readonly string username;
         readonly string password;
+        string accessToken;
         public CWPClient(HttpClient httpClient, IConfiguration configuration)
         {
             var baseUrl = configuration["Auth:BaseUrl"] ?? throw new ArgumentNullException("Auth:BaseUrl");
@@ -31,28 +33,22 @@ namespace CarWashApp.Services.HttpClientServices
             var content = new FormUrlEncodedContent(body);
             HttpResponseMessage response = await client.PostAsync("/token", content);
             response.EnsureSuccessStatusCode();
-            
+
             var jsonResponse = await response.Content.ReadAsStringAsync();
-            
+
             // Parse the JSON response to extract the access_token
             using var jsonDoc = JsonDocument.Parse(jsonResponse);
             if (jsonDoc.RootElement.TryGetProperty("access_token", out var tokenElement))
             {
-                return tokenElement.GetString() ?? throw new InvalidOperationException("Access token is null");
+                accessToken = tokenElement.GetString() ?? throw new InvalidOperationException("Access token is null");
+                return accessToken;
             }
-            
+
             throw new InvalidOperationException("Access token not found in response");
         }
 
         public async Task<HttpResponseMessage> PayAmount(int value)
         {
-            // Get token first
-            var token = await GetAuthorizationToken();
-            
-            // Clear any existing headers and set the authorization header
-            client.DefaultRequestHeaders.Clear();
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
-
             var requestBody = new
             {
                 request = "PayAmount",
@@ -66,11 +62,17 @@ namespace CarWashApp.Services.HttpClientServices
             return response;
         }
 
+        public async Task<HttpResponseMessage> CheckPaymentStatus()
+        {
+            var response = await client.GetAsync("/status");
+            return response;
+        }
+
         public async Task<HttpResponseMessage> CancelPayment()
         {
             // Use existing token - don't get a new one
             // The token should already be set from the previous PayAmount call
-            
+
             var requestBody = new
             {
                 request = "CancelPayment"
@@ -87,7 +89,7 @@ namespace CarWashApp.Services.HttpClientServices
         {
             // Use existing token - don't get a new one
             // The token should already be set from the previous PayAmount call
-            
+
             var requestBody = new
             {
                 request = "CloseSession"
