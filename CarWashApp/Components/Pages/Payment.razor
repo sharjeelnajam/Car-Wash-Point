@@ -3,9 +3,11 @@
 @using Blazored.Toast.Services
 @using CarWashApp.Models
 @using CarWashApp.Models.DTOs
+@using CarWashApp.Responses.Status
 @using CarWashApp.Services
 @using CarWashApp.Services.HttpClientServices
 @using System.Text.Json
+@using System.Text
 
 <button class="btn btn-lg btn-primary" @onclick="@(()=>NavigatationManager.NavigateTo("/"))"> Home</button>
 
@@ -48,7 +50,7 @@
                 
                 <button @onclick="CancelPayment" 
                         class="btn btn-warning btn-lg" 
-                        disabled="@(isProcessingPayment || isCancellingPayment || isClosingSession)">
+                        disabled="@(isCancellingPayment || isClosingSession)">
                     @if (isCancellingPayment)
                     {
                         <span class="spinner-border spinner-border-sm me-2" role="status"></span>
@@ -61,7 +63,7 @@
                     }
                 </button>
                 
-                <button @onclick="CloseSession" 
+                @* <button @onclick="CloseSession" 
                         class="btn btn-secondary btn-lg" 
                         disabled="@(isProcessingPayment || isCancellingPayment || isClosingSession)">
                     @if (isClosingSession)
@@ -74,7 +76,7 @@
                         <i class="bi bi-door-closed me-2"></i>
                         @:Close Session
                     }
-                </button>
+                </button> *@
             </div>
         </div>
     </div>
@@ -126,23 +128,22 @@ else
         isPaymentSelected = true;
     }
 
+
     async Task ProcessPayment()
     {
         isProcessingPayment = true;
         try
         {
             var response = await ApiClient.PayAmount(carWashCharges);
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();
-                ToastService.ShowInfo($"API Response: {responseContent}");
-                
-                // Parse the JSON response to check for success code
+
                 try
                 {
                     var responseData = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(responseContent);
-                    
+
                     if (responseData.TryGetProperty("responseCode", out var codeElement) && 
                         codeElement.GetInt32() == 0)
                     {
@@ -155,7 +156,6 @@ else
                             PaymentMethod = selectedPaymentMethod
                         };
                         TransactionService.AddTransaction(dto);
-                        ToastService.ShowSuccess($"You have successfully paid amount using {selectedPaymentMethod.ToString()}");
                     }
                     else
                     {
@@ -180,8 +180,59 @@ else
                     ToastService.ShowSuccess($"You have successfully paid amount using {selectedPaymentMethod.ToString()}");
                 }
 
+                while (true) // This loop will continue until a break condition is met
+                {
+                    try
+                    {
+                        // 1. Call the API and get the full HTTP response
+                        var status = await ApiClient.CheckPaymentStatus();
 
+                        // 4. Get the latest event from the list
+                        var latestEvent = status?.Events?.LastOrDefault();
 
+                        if (latestEvent != null)
+                        {
+                            // 5. Safely parse the string event name into your enum
+                            if (Enum.TryParse(latestEvent.EventType, out EventType latestEventType))
+                            {
+                                // 6. Use a switch statement for clear logic
+                                switch (latestEventType)
+                                {
+                                    case EventType.Waiting:
+                                        ToastService.ShowInfo("Payment session is active and waiting for cash.");
+                                        break;
+                                    case EventType.PaymentComplete:
+                                        ToastService.ShowSuccess("Payment completed successfully!");
+                                        // You may want to break the loop here
+                                        return;
+                                    case EventType.CancelComplete: // Or any other final state
+                                        ToastService.ShowWarning("Payment was canceled.");
+                                        // Break the loop on final states
+                                        return;
+                                    case EventType.StoppingPayment:
+                                        ToastService.ShowWarning("Payment is stopping...");
+                                        break;
+                                    default:
+                                        ToastService.ShowInfo($"Payment in progress... Current status: {latestEventType}");
+                                        break;
+                                }
+                            }
+                        }
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        Console.WriteLine($"API call failed: {ex.Message}");
+                        // Handle HTTP errors, maybe break or continue
+                    }
+                    catch (JsonException ex)
+                    {
+                        Console.WriteLine($"JSON deserialization failed: {ex.Message}");
+                        // Handle parsing errors
+                    }
+
+                    // Add a delay to prevent rapid, unnecessary polling
+                    await Task.Delay(1000); // Wait for 1 second before the next check
+                }
             }
             else
             {
@@ -205,19 +256,19 @@ else
         try
         {
             ToastService.ShowInfo("Cancelling payment...");
-            
+
             var response = await ApiClient.CancelPayment();
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();
-                ToastService.ShowInfo($"Cancel Payment Response: {responseContent}");
-                
+                // ToastService.ShowInfo($"Cancel Payment Response: {responseContent}");
+
                 // Parse the JSON response to check for success code
                 try
                 {
                     var responseData = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(responseContent);
-                    
+
                     if (responseData.TryGetProperty("responseCode", out var codeElement) && 
                         codeElement.GetInt32() == 0)
                     {
@@ -253,23 +304,25 @@ else
         }
         finally
         {
-            isCancellingPayment = false;
+            isCancellingPayment = false; 
+            await CloseSession();
+
         }
     }
 
     async Task CloseSession()
     {
-        isClosingSession = true;
+        // isClosingSession = true;
         try
         {
-            ToastService.ShowInfo("Closing session...");
+            // ToastService.ShowInfo("Closing session...");
             
             var response = await ApiClient.CloseSession();
             
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();
-                ToastService.ShowInfo($"Close Session Response: {responseContent}");
+                // ToastService.ShowInfo($"Close Session Response: {responseContent}");
                 
                 // Parse the JSON response to check for success code
                 try
@@ -280,7 +333,7 @@ else
                         codeElement.GetInt32() == 0)
                     {
                         // Success - responseCode is 0
-                        ToastService.ShowSuccess("Session closed successfully");
+                        // ToastService.ShowSuccess("Session closed successfully");
                         isPaymentSelected = false; // Reset payment selection
                     }
                     else
@@ -325,57 +378,4 @@ else
         Error
     }
 
-    public async Task<PaymentStatus> PollForPaymentCompletion()
-    {
-        Console.WriteLine("Polling for payment status...");
-
-        while (true)
-        {
-            try
-            {
-                var response = await ApiClient.CheckPaymentStatus();
-                response.EnsureSuccessStatusCode();
-
-                var jsonResponse = await response.Content.ReadAsStringAsync();
-                using var jsonDoc = JsonDocument.Parse(jsonResponse);
-
-                if (jsonDoc.RootElement.TryGetProperty("responseCode", out var codeElement))
-                {
-                    int responseCode = codeElement.GetInt32();
-
-                    // Check for successful payment
-                    if (responseCode == 0) // REQUEST_SUCCESS_PAID
-                    {
-                        Console.WriteLine("Payment successful!");
-                        return PaymentStatus.Successful;
-                    }
-                    // Check for payment cancellation
-                    else if (responseCode == 8) // REQUEST_FAIL_CANCELLED
-                    {
-                        Console.WriteLine("Payment was canceled.");
-                        return PaymentStatus.Canceled;
-                    }
-                    // Check for a stopped session
-                    else if (responseCode == 10) // REQUEST_FAIL_SESSION_STOPPED
-                    {
-                        Console.WriteLine("Payment session has been stopped.");
-                        return PaymentStatus.Stopped;
-                    }
-                    else
-                    {
-                        // Payment is still in progress or in an undetermined state.
-                        Console.WriteLine($"Payment still in progress. Current status: {jsonResponse}");
-                    }
-                }
-
-                // Wait for 1 second before polling again to avoid excessive requests
-                await Task.Delay(1000);
-            }
-            catch (HttpRequestException ex)
-            {
-                Console.WriteLine($"An error occurred while checking status: {ex.Message}");
-                return PaymentStatus.Error;
-            }
-        }
-    }
 }

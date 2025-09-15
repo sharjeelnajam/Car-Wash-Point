@@ -2,7 +2,8 @@
 using System.Net.Http;
 using System.Text.Json;
 using System.Text;
-using System.Net.Http.Headers;
+using System.Threading.Tasks;
+using CarWashApp.Responses.Status;
 
 namespace CarWashApp.Services.HttpClientServices
 {
@@ -11,7 +12,7 @@ namespace CarWashApp.Services.HttpClientServices
         HttpClient client;
         readonly string username;
         readonly string password;
-        string accessToken;
+
         public CWPClient(HttpClient httpClient, IConfiguration configuration)
         {
             var baseUrl = configuration["Auth:BaseUrl"] ?? throw new ArgumentNullException("Auth:BaseUrl");
@@ -19,32 +20,6 @@ namespace CarWashApp.Services.HttpClientServices
             password = configuration["Auth:Password"] ?? throw new ArgumentNullException("Auth:Password");
             httpClient.BaseAddress = new Uri(baseUrl);
             client = httpClient;
-        }
-
-        async Task<string> GetAuthorizationToken()
-        {
-            var body = new Dictionary<string, string>()
-            {
-                { "grant_type", "password" },
-                { "username", username },
-                { "password", password }
-            };
-
-            var content = new FormUrlEncodedContent(body);
-            HttpResponseMessage response = await client.PostAsync("/token", content);
-            response.EnsureSuccessStatusCode();
-
-            var jsonResponse = await response.Content.ReadAsStringAsync();
-
-            // Parse the JSON response to extract the access_token
-            using var jsonDoc = JsonDocument.Parse(jsonResponse);
-            if (jsonDoc.RootElement.TryGetProperty("access_token", out var tokenElement))
-            {
-                accessToken = tokenElement.GetString() ?? throw new InvalidOperationException("Access token is null");
-                return accessToken;
-            }
-
-            throw new InvalidOperationException("Access token not found in response");
         }
 
         public async Task<HttpResponseMessage> PayAmount(int value)
@@ -62,17 +37,17 @@ namespace CarWashApp.Services.HttpClientServices
             return response;
         }
 
-        public async Task<HttpResponseMessage> CheckPaymentStatus()
+        public async Task<StatusResponse> CheckPaymentStatus()
         {
-            var response = await client.GetAsync("/status");
+            // The TokenHandler will add the Authorization header
+            var json = await client.GetAsync("/status?eventVersion=2");
+            var responseString = await json.Content.ReadAsStringAsync();
+            var response = JsonSerializer.Deserialize<StatusResponse>(responseString);
             return response;
         }
 
         public async Task<HttpResponseMessage> CancelPayment()
         {
-            // Use existing token - don't get a new one
-            // The token should already be set from the previous PayAmount call
-
             var requestBody = new
             {
                 request = "CancelPayment"
@@ -87,9 +62,6 @@ namespace CarWashApp.Services.HttpClientServices
 
         public async Task<HttpResponseMessage> CloseSession()
         {
-            // Use existing token - don't get a new one
-            // The token should already be set from the previous PayAmount call
-
             var requestBody = new
             {
                 request = "CloseSession"
