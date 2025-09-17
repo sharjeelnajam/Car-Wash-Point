@@ -256,6 +256,7 @@ else
                             ? messageElement.GetString()
                             : "Failed to cancel payment";
                         ToastService.ShowInfo($"Cancel payment failed: {errorMessage}");
+                        await CloseSession();
                         isCancellingPayment = false;
                     }
             }
