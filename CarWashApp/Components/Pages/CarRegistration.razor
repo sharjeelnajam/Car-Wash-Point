@@ -5,7 +5,7 @@
 @using CarWashApp.Services
 @inject NavigationManager NavigationManager
 
-<EditForm Model="@car" OnValidSubmit="HandleValidSubmit">
+<EditForm Model="@car" OnSubmit="HandleValidSubmit">
     <DataAnnotationsValidator />
     <ValidationSummary />
 

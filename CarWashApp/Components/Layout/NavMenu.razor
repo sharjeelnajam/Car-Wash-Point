@@ -111,7 +111,8 @@
     private void OnAuthenticationStateChanged()
     {
         isAuthenticated = AuthService.IsAuthenticated;
-        InvokeAsync(StateHasChanged);
+        // InvokeAsync(StateHasChanged);
+        StateHasChanged();
     }
 
     private async Task Logout()
