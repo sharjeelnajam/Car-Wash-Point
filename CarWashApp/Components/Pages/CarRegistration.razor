@@ -15,9 +15,12 @@
         <!-- License Plate -->
         <div class="mb-3">
             <label class="form-label">License Plate <span class="text-danger">*</span></label>
-            <InputText class="form-control"
-                       @bind-Value="car.LicensePlate"
-                       @oninput="@(e => car.LicensePlate = e.Value?.ToString()?.ToUpperInvariant())" />
+            <InputText @bind-Value="car.LicensePlate"
+                       class="form-control me-2 uppercase-input"
+                       type="search"
+                       placeholder="License Number..."
+                       oninput="this.value = this.value.toUpperCase()" />
+
             <ValidationMessage For="@(() => car.LicensePlate)" />
         </div>
 

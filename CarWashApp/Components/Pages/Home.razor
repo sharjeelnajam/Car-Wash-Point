@@ -12,9 +12,17 @@
                     <p class="mb-4">Please choose an option below:</p>
                     <div class="d-grid gap-3">
                         <div class="d-flex">
-                            <input value="@searchText" @oninput="@(e => searchText = e.Value?.ToString()?.ToUpperInvariant())"
-                                   class="form-control me-2" type="search" placeholder="Search..." aria-label="Search">
-                            <button @onclick="SearchCar" class="btn btn-outline-primary">Search</button>
+                            @* <input value="@searchText" @oninput="@(e => searchText = e.Value?.ToString()?.ToUpperInvariant())"
+                                   class="form-control me-2" type="search" placeholder="Search..." aria-label="Search"> *@
+                            <InputText @bind-Value="searchText"
+                                       class="form-control me-2 uppercase-input"
+                                       type="search"
+                                       placeholder="Search..."
+                                       aria-label="Search"
+                                       oninput="this.value = this.value.toUpperCase()" />
+
+
+                                   <button @onclick="SearchCar" class="btn btn-outline-primary">Search</button>
                         </div>
                         <NavLink class="btn btn-primary btn-lg" href="car-registration">Car Registration</NavLink>
                     </div>
