@@ -46,11 +46,13 @@
         </div>
 
         <button type="submit" class="btn btn-primary">Register Car</button>
+        <button type="button" @onclick="GoBack" class="btn btn-primary">Back</button>
     </div>
 </EditForm>
 
 @code {
     [Inject] ICarService CarService { get; set; }
+    [Inject] IJSRuntime JS { get; set; }
 
     private CarDto car = new CarDto();
 
@@ -61,4 +63,13 @@
         CarService.AddCar(car); // Assuming DummyCars is a static class managing car data
         NavigationManager.NavigateTo($"car-detail/{car.LicensePlate}"); // Navigate to car list or confirmation
     }
+    private async Task GoBack()
+    {
+        var canGoBack = await JS.InvokeAsync<bool>("eval", "history.length > 1");
+        if (canGoBack)
+            await JS.InvokeVoidAsync("navigationHelper.goBack");
+        else
+            NavigationManager.NavigateTo("/"); // fallback to home
+    }
+
 }
