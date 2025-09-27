@@ -9,7 +9,7 @@
 @using System.Text.Json
 @using System.Text
 
-<button class="btn btn-lg btn-primary" @onclick="@(() => NavigatationManager.NavigateTo("/"))"> Home</button>
+<button class="btn btn-lg btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/"))"> Home</button>
 
 @if (isPaymentSelected)
 {
@@ -115,7 +115,7 @@ else
     [Inject] IToastService ToastService { get; set; }
     [Inject] CWPClient ApiClient { get; set; }
     [Inject] ITransactionService TransactionService { get; set; }
-    [Inject] NavigationManager NavigatationManager { get; set; }
+    [Inject] NavigationManager NavigationManager { get; set; }
     bool isPaymentSelected = false;
     bool isProcessingPayment = false;
     bool isCancellingPayment = false;
@@ -134,7 +134,7 @@ else
         try
         {
             ToastService.ShowInfo("Starting payment...");
-            
+
             // Use the new safe payment method
             var result = await ApiClient.StartPaymentSafely(carWashCharges);
 
@@ -142,7 +142,7 @@ else
             {
                 // Payment started successfully
                 ToastService.ShowSuccess(result.Message);
-                
+
                 // Add transaction record
                 var dto = new TransactionDto
                 {
@@ -174,7 +174,7 @@ else
                                     return;
                                 case EventType.CancelComplete:
                                     ToastService.ShowWarning("Payment was canceled.");
-                                    isPaymentSelected = false; // Reset payment selection
+                                    isPaymentSelected = false; // Reset payment selection 
                                     return;
                                 case EventType.StoppingPayment:
                                     ToastService.ShowWarning("Payment is stopping...");
@@ -190,7 +190,7 @@ else
                     }
                     
                     // Add a delay to prevent rapid, unnecessary polling
-                    await Task.Delay(1000);
+                    await Task.Delay(3000);
                 }
             }
             else
@@ -222,6 +222,7 @@ else
             if (result.Success)
             {
                 ToastService.ShowSuccess(result.Message);
+                NavigationManager.NavigateTo("/");
             }
             else
             {
