@@ -22,7 +22,7 @@ namespace CarWashApp.Services.HttpClientServices
             client = httpClient;
         }
 
-        public async Task<HttpResponseMessage> PayAmount(int value)
+        public async Task<HttpResponseMessage> PayAmount(decimal value)
         {
             // First, try to close any existing session to ensure clean state
             try
@@ -67,7 +67,7 @@ namespace CarWashApp.Services.HttpClientServices
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await client.PostAsync("/session", content);
-            
+
             // Always try to close session after cancellation attempt
             try
             {
@@ -77,7 +77,7 @@ namespace CarWashApp.Services.HttpClientServices
             {
                 // Ignore errors when closing session after cancellation
             }
-            
+
             return response;
         }
 
@@ -98,25 +98,25 @@ namespace CarWashApp.Services.HttpClientServices
         /// <summary>
         /// Safely starts a new payment by closing any existing session first
         /// </summary>
-        public async Task<(bool Success, string Message, HttpResponseMessage Response)> StartPaymentSafely(int value)
+        public async Task<(bool Success, string Message, HttpResponseMessage Response)> StartPaymentSafely(decimal value)
         {
             try
             {
                 // First, ensure any existing session is closed
                 await CloseSession();
-                
+
                 // Small delay to ensure session is properly closed
                 await Task.Delay(500);
-                
+
                 // Now start the new payment
                 var response = await PayAmount(value);
-                
+
                 if (response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
                     var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                    
-                    if (responseData.TryGetProperty("responseCode", out var codeElement) && 
+
+                    if (responseData.TryGetProperty("responseCode", out var codeElement) &&
                         codeElement.GetInt32() == 0)
                     {
                         return (true, "Payment started successfully", response);
@@ -145,7 +145,7 @@ namespace CarWashApp.Services.HttpClientServices
                 {
                     // Ignore errors when closing session after an exception
                 }
-                
+
                 return (false, $"Payment error: {ex.Message}", null);
             }
         }
@@ -159,13 +159,13 @@ namespace CarWashApp.Services.HttpClientServices
             {
                 // First try to cancel the payment
                 var cancelResponse = await CancelPayment();
-                
+
                 if (cancelResponse.IsSuccessStatusCode)
                 {
                     var responseContent = await cancelResponse.Content.ReadAsStringAsync();
                     var responseData = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                    
-                    if (responseData.TryGetProperty("responseCode", out var codeElement) && 
+
+                    if (responseData.TryGetProperty("responseCode", out var codeElement) &&
                         codeElement.GetInt32() == 0)
                     {
                         return (true, "Payment cancelled successfully");
@@ -193,7 +193,7 @@ namespace CarWashApp.Services.HttpClientServices
                 {
                     // Ignore errors when closing session after an exception
                 }
-                
+
                 return (false, $"Cancel payment error: {ex.Message}");
             }
         }

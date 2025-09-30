@@ -19,18 +19,21 @@
         <div class="card shadow-lg p-5 text-center"
              style="max-width: 500px; border-radius: 20px;">
 
-            <h2 class="mb-4" style="font-size: 2rem; font-weight: bold;">
+            @* <h2 class="mb-4" style="font-size: 2rem; font-weight: bold;">
                 Charges for car wash: <span style="color: #007bff;">@carWashCharges €</span>
-            </h2>
+            </h2> *@
 
             <p class="mb-3" style="font-size: 1.5rem; font-weight: 500;">
-                You have paid:
+                Amount To Pay:
             </p>
 
-            <input type="number"
-                   class="form-control form-control-lg text-center"
+            <InputNumber @bind-Value="CarWashCharges"
+                         type="number"
+                         step="0.01"
+                         class="form-control form-control-lg text-center"
                    placeholder="Enter amount"
                    style="font-size: 1.5rem; border-radius: 12px;" />
+
 
             <div class="mt-4 d-flex gap-2 justify-content-center flex-wrap">
                 <button @onclick="ProcessPayment"
@@ -126,7 +129,23 @@ else
     bool isPaymentSelected = false;
     bool isProcessingPayment = false;
     bool isCancellingPayment = false;
-    int carWashCharges = 8;
+    private decimal carWashCharges;
+    decimal CarWashCharges
+    {
+        get => carWashCharges;
+        set
+        {
+            if (value < 0)
+            {
+                carWashCharges = 0;
+            }
+            else
+            {
+                carWashCharges = Math.Round(value, 2);
+            }
+        }
+    }
+
     byte[] pdfBytes;
 
     InvoiceDto invoiceDto = new()
