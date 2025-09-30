@@ -19,7 +19,7 @@ builder.Services.AddScoped<ICarService, CarService>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
-
+builder.Services.AddScoped(typeof(InvoiceService));
 builder.Services.AddBlazoredToast();
 
 builder.Services.AddTransient<TokenHandler>();

@@ -103,6 +103,10 @@ else
                                     class="btn btn-info btn-lg w-75 text-white" type="button">
                                 <i class="bi bi-credit-card-2-front me-2"></i>Card
                             </button>
+                            <button @onclick="DownloadPdf"
+                                    class="btn btn-secondary btn-lg w-75 text-white" type="button">
+                                <i class="bi bi-credit-card-2-front me-2"></i>Download PDF
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -116,10 +120,22 @@ else
     [Inject] CWPClient ApiClient { get; set; }
     [Inject] ITransactionService TransactionService { get; set; }
     [Inject] NavigationManager NavigationManager { get; set; }
+    [Inject] InvoiceService InvoiceService { get; set; }
+    [Inject] IJSRuntime JS { get; set; }
+
     bool isPaymentSelected = false;
     bool isProcessingPayment = false;
     bool isCancellingPayment = false;
     int carWashCharges = 8;
+    byte[] pdfBytes;
+
+    InvoiceDto invoiceDto = new()
+    {
+        Service = "Full Wash",
+        CustomerName = "Test Customer",
+        Amount = "8"
+    };
+
     PaymentMethod selectedPaymentMethod;
     async Task PaymentMethodSelected(PaymentMethod method)
     {
@@ -171,6 +187,7 @@ else
                                 case EventType.PaymentComplete:
                                     ToastService.ShowSuccess("Payment completed successfully!");
                                     isPaymentSelected = false; // Reset payment selection
+                                    pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
                                     return;
                                 case EventType.CancelComplete:
                                     ToastService.ShowWarning("Payment was canceled.");
@@ -188,7 +205,7 @@ else
                             }
                         }
                     }
-                    
+
                     // Add a delay to prevent rapid, unnecessary polling
                     await Task.Delay(3000);
                 }
@@ -222,13 +239,13 @@ else
             if (result.Success)
             {
                 ToastService.ShowSuccess(result.Message);
-                NavigationManager.NavigateTo("/");
+                // NavigationManager.NavigateTo("/");
             }
             else
             {
                 ToastService.ShowWarning(result.Message);
             }
-            
+
             // Reset payment selection regardless of success/failure
             isPaymentSelected = false;
         }
@@ -244,7 +261,17 @@ else
         }
     }
 
+    private async Task DownloadPdf()
+    {
+        var pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
 
+        if(pdfBytes is not null)
+        {
+            string base64 = Convert.ToBase64String(pdfBytes);
+
+            await JS.InvokeVoidAsync("downloadHelper", "Invoice.pdf", "application/pdf", base64);
+        }
+    }
 
     public enum PaymentStatus
     {
