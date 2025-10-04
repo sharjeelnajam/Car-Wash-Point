@@ -152,37 +152,49 @@ else
                     </div>
                 </div>
 
-                <!-- Loyalty Points Redemption Options - TEMPORARY: Always show for testing -->
-                @if (true) @* Always show for testing *@
+                <!-- Debug Information -->
+                <div class="alert alert-info mt-3">
+                    <strong>Debug Info:</strong><br/>
+                    isPaymentSelected: @isPaymentSelected<br/>
+                    selectedCar != null: @(selectedCar != null)<br/>
+                    selectedCar.LoyaltyPoints: @(selectedCar?.LoyaltyPoints ?? -1)<br/>
+                    carWashCharges: @carWashCharges<br/>
+                    selectedPaymentMethod: @selectedPaymentMethod
+                </div>
+
+                <!-- Loyalty Points Redemption Options - Only shown after payment method selection -->
+                @if (selectedCar != null) @* Always show for testing *@
                 {
                     <div class="card mb-4">
                         <div class="card-header bg-warning text-dark">
                             <h5 class="mb-0"><i class="bi bi-star-fill me-2"></i>Loyalty Points Redemption</h5>
                         </div>
                         <div class="card-body text-center">
-                            <p class="mb-3">You have <strong>@(selectedCar?.LoyaltyPoints ?? 15) points</strong> available! (TEST: Always 15 points)</p>
+                            <p class="mb-3">You have <strong>@selectedCar.LoyaltyPoints points</strong> available!</p>
                             <p class="mb-3 text-muted">Amount: <strong>$@carWashCharges.ToString("F2")</strong></p>
                             <div class="d-flex flex-column gap-3 align-items-center">
-                                @* Always show 5 points option for testing *@
-                                @{
+                                @if (selectedCar.LoyaltyPoints >= 5)
+                                {
                                     var halfOffAmount = carWashCharges / 2;
+                                    <button @onclick="@(() => SelectLoyaltyRedemption(LoyaltyRedemptionType.HalfPrice))"
+                                            class="btn btn-warning btn-lg w-75 @(redemptionType == LoyaltyRedemptionType.HalfPrice ? "border-primary" : "")"
+                                            style="border-width: 3px;" title="Use 5 points for 50% off">
+                                        <i class="bi bi-star me-2"></i>
+                                        5 Points = 50% OFF<br>
+                                        <small>Pay $@halfOffAmount.ToString("F2") instead of $@carWashCharges.ToString("F2")</small>
+                                    </button>
                                 }
-                                <button @onclick="@(() => SelectLoyaltyRedemption(LoyaltyRedemptionType.HalfPrice))"
-                                        class="btn btn-warning btn-lg w-75 @(redemptionType == LoyaltyRedemptionType.HalfPrice ? "border-primary" : "")"
-                                        style="border-width: 3px;" title="Use 5 points for 50% off">
-                                    <i class="bi bi-star me-2"></i>
-                                    5 Points = 50% OFF<br>
-                                    <small>Pay $@halfOffAmount.ToString("F2") instead of $@carWashCharges.ToString("F2")</small>
-                                </button>
                                 
-                                @* Always show 10 points option for testing *@
-                                <button @onclick="@(() => SelectLoyaltyRedemption(LoyaltyRedemptionType.FreeWash))"
-                                        class="btn btn-success btn-lg w-75 @(redemptionType == LoyaltyRedemptionType.FreeWash ? "border-primary" : "")"
-                                        style="border-width: 3px;" title="Use 10 points for free wash">
-                                    <i class="bi bi-gift me-2"></i>
-                                    10 Points = FREE WASH<br>
-                                    <small>No payment required! (Was $@carWashCharges.ToString("F2"))</small>
-                                </button>
+                                @if (selectedCar.LoyaltyPoints >= 10)
+                                {
+                                    <button @onclick="@(() => SelectLoyaltyRedemption(LoyaltyRedemptionType.FreeWash))"
+                                            class="btn btn-success btn-lg w-75 @(redemptionType == LoyaltyRedemptionType.FreeWash ? "border-primary" : "")"
+                                            style="border-width: 3px;" title="Use 10 points for free wash">
+                                        <i class="bi bi-gift me-2"></i>
+                                        10 Points = FREE WASH<br>
+                                        <small>No payment required! (Was $@carWashCharges.ToString("F2"))</small>
+                                    </button>
+                                }
                                 
                                 <button @onclick="@(() => SelectLoyaltyRedemption(LoyaltyRedemptionType.None))"
                                         class="btn btn-outline-secondary btn-lg w-75 @(redemptionType == LoyaltyRedemptionType.None ? "border-primary" : "")"
@@ -191,6 +203,15 @@ else
                                     Pay Full Price ($@carWashCharges.ToString("F2"))<br>
                                     <small>Earn 1 loyalty point</small>
                                 </button>
+
+                                @if (selectedCar.LoyaltyPoints < 5)
+                                {
+                                    <div class="alert alert-info mt-3">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Need more points!</strong> Earn @(5 - selectedCar.LoyaltyPoints) more point(s) to unlock 50% off redemption.
+                                        Pay full price today to earn 1 loyalty point!
+                                    </div>
+                                }
                             </div>
                         </div>
                     </div>
