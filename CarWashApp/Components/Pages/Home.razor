@@ -19,7 +19,8 @@
                                        type="search"
                                        placeholder="Search..."
                                        aria-label="Search"
-                                       oninput="this.value = this.value.toUpperCase()" />
+                                       oninput="this.value = this.value.toUpperCase()"
+                                       @onkeypress="@OnKeyPress" />
 
 
                                    <button @onclick="SearchCar" class="btn btn-outline-primary">Search</button>
@@ -51,6 +52,14 @@
                 // Handle case where car is not found
                 Console.WriteLine("Car not found");
             }
+        }
+    }
+
+    void OnKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            SearchCar();
         }
     }
 }
