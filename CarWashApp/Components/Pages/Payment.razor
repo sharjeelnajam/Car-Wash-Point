@@ -129,41 +129,8 @@ else
                     </div>
                 }
 
-                <div class="card shadow-lg">
-                    <div class="card-header bg-success text-white text-center">
-                        <h3 class="mb-0"><i class="bi bi-credit-card-2-front-fill me-2"></i>Payment Options</h3>
-                    </div>
-                    <div class="card-body text-center">
-                        <p class="lead mb-4">Select your preferred payment method:</p>
-                        <div class="d-flex flex-column gap-4 align-items-center">
-                            <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Cash))
-                                    class="btn btn-primary btn-lg w-75" type="button">
-                                <i class="bi bi-cash-coin me-2"></i>Cash
-                            </button>
-                            <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Card))
-                                    class="btn btn-info btn-lg w-75 text-white" type="button">
-                                <i class="bi bi-credit-card-2-front me-2"></i>Card
-                            </button>
-                            <button @onclick="DownloadPdf"
-                                    class="btn btn-secondary btn-lg w-75 text-white" type="button">
-                                <i class="bi bi-credit-card-2-front me-2"></i>Download PDF
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Debug Information -->
-                <div class="alert alert-info mt-3">
-                    <strong>Debug Info:</strong><br/>
-                    isPaymentSelected: @isPaymentSelected<br/>
-                    selectedCar != null: @(selectedCar != null)<br/>
-                    selectedCar.LoyaltyPoints: @(selectedCar?.LoyaltyPoints ?? -1)<br/>
-                    carWashCharges: @carWashCharges<br/>
-                    selectedPaymentMethod: @selectedPaymentMethod
-                </div>
-
-                <!-- Loyalty Points Redemption Options - Only shown after payment method selection -->
-                @if (selectedCar != null) @* Always show for testing *@
+                <!-- Loyalty Points Redemption Options - Always show if car data is available -->
+                @if (selectedCar != null)
                 {
                     <div class="card mb-4">
                         <div class="card-header bg-warning text-dark">
@@ -196,13 +163,6 @@ else
                                     </button>
                                 }
                                 
-                                <button @onclick="@(() => SelectLoyaltyRedemption(LoyaltyRedemptionType.None))"
-                                        class="btn btn-outline-secondary btn-lg w-75 @(redemptionType == LoyaltyRedemptionType.None ? "border-primary" : "")"
-                                        style="border-width: 3px;" title="Pay full price and earn 1 loyalty point">
-                                    <i class="bi bi-cash me-2"></i>
-                                    Pay Full Price ($@carWashCharges.ToString("F2"))<br>
-                                    <small>Earn 1 loyalty point</small>
-                                </button>
 
                                 @if (selectedCar.LoyaltyPoints < 5)
                                 {
@@ -216,6 +176,30 @@ else
                         </div>
                     </div>
                 }
+
+                <div class="card shadow-lg">
+                    <div class="card-header bg-success text-white text-center">
+                        <h3 class="mb-0"><i class="bi bi-credit-card-2-front-fill me-2"></i>Payment Options</h3>
+                    </div>
+                    <div class="card-body text-center">
+                        <p class="lead mb-4">Select your preferred payment method:</p>
+                        <div class="d-flex flex-column gap-4 align-items-center">
+                            <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Cash))
+                                    class="btn btn-primary btn-lg w-75" type="button">
+                                <i class="bi bi-cash-coin me-2"></i>Cash
+                            </button>
+                            <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Card))
+                                    class="btn btn-info btn-lg w-75 text-white" type="button">
+                                <i class="bi bi-credit-card-2-front me-2"></i>Card
+                            </button>
+                            <button @onclick="DownloadPdf"
+                                    class="btn btn-secondary btn-lg w-75 text-white" type="button">
+                                <i class="bi bi-credit-card-2-front me-2"></i>Download PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
