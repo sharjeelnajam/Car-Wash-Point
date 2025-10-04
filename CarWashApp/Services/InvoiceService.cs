@@ -18,8 +18,8 @@ namespace CarWashApp.Services
                 var sampleInvoice = new InvoiceDto
                 {
                     CustomerName = "John Smith",
-                    CustomerEmail = "john.smith@email.com",
-                    CustomerPhone = "+44 123 456 7890",
+                    CustomerEmail = "",  // Removed email
+                    CustomerPhone = "",  // Removed phone
                     VehicleType = "Car",
                     LicensePlate = "ABC123",
                     InvoiceNumber = "INV-2024-001",
@@ -32,12 +32,17 @@ namespace CarWashApp.Services
                         new ServiceItem { Description = "Vacuum Interior", Quantity = 1, UnitPrice = 5.00m, TotalPrice = 5.00m }
                     },
                     Subtotal = 20.00m,
-                    TaxRate = 0.20m,
-                    TaxAmount = 4.00m,
-                    TotalAmount = 24.00m,
+                    TaxRate = 0m,      // Removed VAT
+                    TaxAmount = 0m,     // Removed VAT
+                    TotalAmount = 20.00m,  // Updated to match subtotal without VAT
                     PaymentMethod = "Card Payment",
                     Notes = "Vehicle was in good condition. Customer requested extra attention to wheels."
                 };
+
+                // ✅ Resolve image path under wwwroot/img/
+                var imagePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "img", "invoice-header.WEBP");
+                if (!File.Exists(imagePath))
+                    throw new FileNotFoundException($"Invoice header image not found: {imagePath}");
 
                 return Document.Create(container =>
                 {
@@ -47,30 +52,33 @@ namespace CarWashApp.Services
                         page.Margin(40);
                         page.DefaultTextStyle(x => x.FontSize(10));
 
-                        // Header Section
+                        // ✅ Header Section with image
                         page.Header()
                             .Height(120)
-                            .Background(Colors.Blue.Medium)
-                            .Padding(20)
                             .Row(row =>
                             {
                                 row.RelativeItem().Column(col =>
                                 {
                                     col.Item().Text("DR WASH")
                                         .FontSize(24)
-                                        .FontColor(Colors.White)
+                                        .FontColor(Colors.Blue.Medium)
                                         .Bold();
                                     col.Item().Text("Professional Vehicle Care Services")
                                         .FontSize(12)
-                                        .FontColor(Colors.White);
+                                        .FontColor(Colors.Grey.Medium);
                                     col.Item().PaddingTop(10).Text("123 Main Street, City Center")
                                         .FontSize(10)
-                                        .FontColor(Colors.White);
-                                    col.Item().Text("Phone: +44 123 456 7890 | Email: info@carwashpoint.com")
+                                        .FontColor(Colors.Grey.Medium);
+                                    col.Item().Text("Professional Vehicle Care Services")
                                         .FontSize(10)
-                                        .FontColor(Colors.White);
+                                        .FontColor(Colors.Grey.Medium);
                                 });
-                                row.ConstantItem(120).AlignRight().Placeholder();
+
+                                // ✅ Add header logo image
+                                row.ConstantItem(120)
+                                   .AlignRight()
+                                   .Image(imagePath)
+                                   .FitArea();
                             });
 
                         // Invoice Title and Details
@@ -87,12 +95,12 @@ namespace CarWashApp.Services
                                         .FontColor(Colors.Blue.Medium);
                                     row.ConstantItem(200).AlignRight().Column(invoiceCol =>
                                     {
-                                        invoiceCol.Item().Text($"Invoice #: {sampleInvoice.InvoiceNumber}")
+                                        invoiceCol.Item().Text($"Invoice #: {invoiceDto.InvoiceNumber}")
                                             .FontSize(12)
                                             .Bold();
-                                        invoiceCol.Item().Text($"Date: {sampleInvoice.InvoiceDate:dd/MM/yyyy}")
+                                        invoiceCol.Item().Text($"Date: {invoiceDto.InvoiceDate:dd/MM/yyyy}")
                                             .FontSize(12);
-                                        invoiceCol.Item().Text($"Time: {sampleInvoice.InvoiceDate:HH:mm}")
+                                        invoiceCol.Item().Text($"Time: {invoiceDto.InvoiceDate:HH:mm}")
                                             .FontSize(12);
                                     });
                                 });
@@ -108,15 +116,10 @@ namespace CarWashApp.Services
                                             .FontSize(14)
                                             .Bold()
                                             .FontColor(Colors.Grey.Medium);
-                                        customerCol.Item().PaddingTop(5).Text(sampleInvoice.CustomerName)
+                                        customerCol.Item().PaddingTop(5).Text(invoiceDto.CustomerName)
                                             .FontSize(12)
                                             .Bold();
-                                        if (!string.IsNullOrEmpty(sampleInvoice.CustomerEmail))
-                                            customerCol.Item().Text(sampleInvoice.CustomerEmail)
-                                                .FontSize(10);
-                                        if (!string.IsNullOrEmpty(sampleInvoice.CustomerPhone))
-                                            customerCol.Item().Text(sampleInvoice.CustomerPhone)
-                                                .FontSize(10);
+                                        // Email and phone removed per requirement
                                     });
 
                                     row.ConstantItem(200).Column(vehicleCol =>
@@ -125,9 +128,9 @@ namespace CarWashApp.Services
                                             .FontSize(14)
                                             .Bold()
                                             .FontColor(Colors.Grey.Medium);
-                                        vehicleCol.Item().PaddingTop(5).Text($"Type: {sampleInvoice.VehicleType}")
+                                        vehicleCol.Item().PaddingTop(5).Text($"Type: {invoiceDto.VehicleType}")
                                             .FontSize(12);
-                                        vehicleCol.Item().Text($"License Plate: {sampleInvoice.LicensePlate}")
+                                        vehicleCol.Item().Text($"License Plate: {invoiceDto.LicensePlate}")
                                             .FontSize(12)
                                             .Bold();
                                     });
@@ -149,37 +152,33 @@ namespace CarWashApp.Services
                                     // Table Header
                                     table.Header(header =>
                                     {
-                                        header.Cell().Background(Colors.Grey.Medium)
+                                        header.Cell().Background(Colors.Grey.Lighten2)
                                             .Padding(8)
                                             .Text("DESCRIPTION")
                                             .FontSize(11)
-                                            .Bold()
-                                            .FontColor(Colors.Grey.Medium);
-                                        header.Cell().Background(Colors.Grey.Medium)
+                                            .Bold();
+                                        header.Cell().Background(Colors.Grey.Lighten2)
                                             .Padding(8)
                                             .AlignCenter()
                                             .Text("QTY")
                                             .FontSize(11)
-                                            .Bold()
-                                            .FontColor(Colors.Grey.Medium);
-                                        header.Cell().Background(Colors.Grey.Medium)
+                                            .Bold();
+                                        header.Cell().Background(Colors.Grey.Lighten2)
                                             .Padding(8)
                                             .AlignRight()
                                             .Text("UNIT PRICE")
                                             .FontSize(11)
-                                            .Bold()
-                                            .FontColor(Colors.Grey.Medium);
-                                        header.Cell().Background(Colors.Grey.Medium)
+                                            .Bold();
+                                        header.Cell().Background(Colors.Grey.Lighten2)
                                             .Padding(8)
                                             .AlignRight()
                                             .Text("TOTAL")
                                             .FontSize(11)
-                                            .Bold()
-                                            .FontColor(Colors.Grey.Medium);
+                                            .Bold();
                                     });
 
                                     // Service Items
-                                    foreach (var item in sampleInvoice.ServiceItems)
+                                    foreach (var item in invoiceDto.ServiceItems)
                                     {
                                         table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Medium)
                                             .Padding(8)
@@ -211,32 +210,15 @@ namespace CarWashApp.Services
                                     row.RelativeItem(); // Empty space
                                     row.ConstantItem(200).Column(totalsCol =>
                                     {
+                                        // Totals section without VAT
                                         totalsCol.Item().Row(totalRow =>
-                                        {
-                                            totalRow.RelativeItem().Text("Subtotal:")
-                                                .FontSize(12);
-                                            totalRow.ConstantItem(80).AlignRight()
-                                                .Text($"£{sampleInvoice.Subtotal:F2}")
-                                                .FontSize(12);
-                                        });
-
-                                        totalsCol.Item().Row(totalRow =>
-                                        {
-                                            totalRow.RelativeItem().Text($"VAT ({(sampleInvoice.TaxRate * 100):F0}%):")
-                                                .FontSize(12);
-                                            totalRow.ConstantItem(80).AlignRight()
-                                                .Text($"£{sampleInvoice.TaxAmount:F2}")
-                                                .FontSize(12);
-                                        });
-
-                                        totalsCol.Item().PaddingTop(5).Row(totalRow =>
                                         {
                                             totalRow.RelativeItem().Text("TOTAL:")
                                                 .FontSize(14)
                                                 .Bold()
                                                 .FontColor(Colors.Blue.Medium);
                                             totalRow.ConstantItem(80).AlignRight()
-                                                .Text($"£{sampleInvoice.TotalAmount:F2}")
+                                                .Text($"£{invoiceDto.TotalAmount:F2}")
                                                 .FontSize(14)
                                                 .Bold()
                                                 .FontColor(Colors.Blue.Medium);
@@ -247,24 +229,24 @@ namespace CarWashApp.Services
                                 col.Item().PaddingVertical(20);
 
                                 // Payment Information
-                                if (!string.IsNullOrEmpty(sampleInvoice.PaymentMethod))
+                                if (!string.IsNullOrEmpty(invoiceDto.PaymentMethod))
                                 {
                                     col.Item().Row(row =>
                                     {
-                                        row.RelativeItem().Text($"Payment Method: {sampleInvoice.PaymentMethod}")
+                                        row.RelativeItem().Text($"Payment Method: {invoiceDto.PaymentMethod}")
                                             .FontSize(12)
                                             .Bold();
                                     });
                                 }
 
                                 // Notes
-                                if (!string.IsNullOrEmpty(sampleInvoice.Notes))
+                                if (!string.IsNullOrEmpty(invoiceDto.Notes))
                                 {
                                     col.Item().PaddingTop(20).Text("Notes:")
                                         .FontSize(12)
                                         .Bold()
                                         .FontColor(Colors.Grey.Medium);
-                                    col.Item().PaddingTop(5).Text(sampleInvoice.Notes)
+                                    col.Item().PaddingTop(5).Text(invoiceDto.Notes)
                                         .FontSize(10);
                                 }
 
