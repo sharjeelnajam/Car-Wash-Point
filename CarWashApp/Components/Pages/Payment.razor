@@ -130,7 +130,7 @@ else
                 }
 
                 <!-- Loyalty Points Redemption Options - Always show if car data is available -->
-                @if (selectedCar != null)
+                @if (selectedCar != null) @* Temporarily show without payment selection for easier testing *@
                 {
                     <div class="card mb-4">
                         <div class="card-header bg-warning text-dark">
@@ -139,16 +139,17 @@ else
                         <div class="card-body text-center">
                             <p class="mb-3">You have <strong>@selectedCar.LoyaltyPoints points</strong> available!</p>
                             <p class="mb-3 text-muted">Amount: <strong>$@carWashCharges.ToString("F2")</strong></p>
-                            <div class="d-flex flex-column gap-3 align-items-center">
+                                <div class="d-flex flex-column gap-3 align-items-center">
                                 @if (selectedCar.LoyaltyPoints >= 5)
                                 {
-                                    var halfOffAmount = carWashCharges / 2;
+                                    var currentAmount = carWashCharges > 0 ? carWashCharges : (originalAmount > 0 ? originalAmount : 0);
+                                    var discountAmount = currentAmount / 2;
                                     <button @onclick="@(() => SelectLoyaltyRedemption(LoyaltyRedemptionType.HalfPrice))"
                                             class="btn btn-warning btn-lg w-75 @(redemptionType == LoyaltyRedemptionType.HalfPrice ? "border-primary" : "")"
                                             style="border-width: 3px;" title="Use 5 points for 50% off">
                                         <i class="bi bi-star me-2"></i>
                                         5 Points = 50% OFF<br>
-                                        <small>Pay $@halfOffAmount.ToString("F2") instead of $@carWashCharges.ToString("F2")</small>
+                                        <small>Pay $@discountAmount.ToString("F2") instead of $@currentAmount.ToString("F2")</small>
                                     </button>
                                 }
                                 
@@ -237,11 +238,14 @@ else
                 value = Math.Round(value, 2);
                 carWashCharges = value;
                 
-                // If user manually enters amount and hasn't selected redemption yet, store as original amount
-                if (redemptionType == LoyaltyRedemptionType.None && value >= 5)
+                // Store the user-entered amount as original amount if it's valid
+                if (value >= 5)
                 {
                     originalAmount = value;
                 }
+                
+                // Force UI refresh to update loyalty calculations
+                StateHasChanged();
             }
         }
     }
@@ -503,7 +507,8 @@ else
 
     private decimal CalculateFinalAmount()
     {
-        decimal baseAmount = originalAmount > 0 ? originalAmount : carWashCharges;
+        // Use the current carWashCharges value for calculations
+        decimal baseAmount = carWashCharges > 0 ? carWashCharges : originalAmount;
         
         switch (redemptionType)
         {
@@ -522,11 +527,24 @@ else
     {
         redemptionType = type;
         
-        // Special handling for free wash - direct redemption without transaction
+        // Special handling for free wash - direct redemption with confirmation
         if (type == LoyaltyRedemptionType.FreeWash)
         {
             if (selectedCar != null && selectedCar.LoyaltyPoints >= 10)
             {
+                // Show confirmation dialog
+                bool confirmed = await JS.InvokeAsync<bool>("confirm", 
+                    $"Are you sure you want to redeem 10 loyalty points for a FREE car wash?\n\n" +
+                    $"Original amount: ${carWashCharges:F2}\n" +
+                    $"Points available: {selectedCar.LoyaltyPoints}\n" +
+                    $"Points after redemption: {selectedCar.LoyaltyPoints - 10}\n\n" +
+                    $"This action cannot be undone.");
+
+                if (!confirmed)
+                {
+                    return; // User cancelled
+                }
+
                 // Deduct points immediately
                 selectedCar.LoyaltyPoints -= 10;
                 CarService.UpdateCar(selectedCar);
@@ -564,8 +582,16 @@ else
         }
         
         // Calculate new amount based on loyalty redemption
-        decimal newAmount = CalculateFinalAmount();
-        carWashCharges = newAmount;
+        // For half price, calculate 50% of the current amount
+        if (type == LoyaltyRedemptionType.HalfPrice)
+        {
+            carWashCharges = carWashCharges / 2;
+        }
+        else
+        {
+            decimal newAmount = CalculateFinalAmount();
+            carWashCharges = newAmount;
+        }
         
         StateHasChanged();
     }
