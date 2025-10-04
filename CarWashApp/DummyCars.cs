@@ -6,9 +6,9 @@ namespace CarWashApp
     {
         private static List<Car> _cars = new List<Car>
             {
-                new Car { Id = 1, LicensePlate="ABC-123",Name = "Sedan"},
-                new Car { Id = 2, LicensePlate="ABC-124",Name = "SUV" },
-                new Car { Id = 3, LicensePlate = "ABC-125", Name = "Hatchback" }
+                new Car { Id = 1, LicensePlate="ABC-123", Name = "Sedan", Color = "Blue", LoyaltyPoints = 15},
+                new Car { Id = 2, LicensePlate="ABC-124", Name = "SUV", Color = "Red", LoyaltyPoints = 8 },
+                new Car { Id = 3, LicensePlate = "ABC-125", Name = "Hatchback", Color = "Green", LoyaltyPoints = 3 }
             };
 
         public static List<Car> GetCars()

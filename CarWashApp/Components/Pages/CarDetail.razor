@@ -46,6 +46,7 @@ else
 
     void GoToPayment()
     {
-        NavigationManager.NavigateTo("payment");
+        var carData = System.Text.Json.JsonSerializer.Serialize(car);
+        NavigationManager.NavigateTo($"payment?car={Uri.EscapeDataString(carData)}");
     }
 }

@@ -8,6 +8,7 @@
 @using CarWashApp.Services.HttpClientServices
 @using System.Text.Json
 @using System.Text
+@using Microsoft.AspNetCore.WebUtilities
 
 <button class="btn btn-lg btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/"))"> Home</button>
 
@@ -91,6 +92,43 @@ else
     <div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-md-8 col-lg-6">
+                <!-- Car Information Card -->
+                @if (selectedCar != null)
+                {
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-car-front me-2"></i>Selected Vehicle</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-1"><strong>Car:</strong> @selectedCar.Name</p>
+                            <p class="mb-1"><strong>License Plate:</strong> @selectedCar.LicensePlate</p>
+                            <p class="mb-0"><strong>Available Points:</strong> <span class="badge bg-warning text-dark">@selectedCar.LoyaltyPoints points</span></p>
+                        </div>
+                    </div>
+                }
+
+                <!-- Amount Input Section -->
+                @if (selectedCar != null)
+                {
+                    <div class="card mb-4">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Enter Amount</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <p class="mb-3">Enter the amount for your car wash service:</p>
+                            <div class="mb-3">
+                                <InputNumber @bind-Value="carWashCharges"
+                                           type="number"
+                                           step="0.01"
+                                           class="form-control form-control-lg text-center"
+                                           placeholder="Enter amount"
+                                           style="font-size: 1.2rem; border-radius: 8px;" />
+                            </div>
+                            <small class="text-muted">Minimum amount: $5.00</small>
+                        </div>
+                    </div>
+                }
+
                 <div class="card shadow-lg">
                     <div class="card-header bg-success text-white text-center">
                         <h3 class="mb-0"><i class="bi bi-credit-card-2-front-fill me-2"></i>Payment Options</h3>
@@ -113,6 +151,50 @@ else
                         </div>
                     </div>
                 </div>
+
+                <!-- Loyalty Points Redemption Options - TEMPORARY: Always show for testing -->
+                @if (true) @* Always show for testing *@
+                {
+                    <div class="card mb-4">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0"><i class="bi bi-star-fill me-2"></i>Loyalty Points Redemption</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <p class="mb-3">You have <strong>@(selectedCar?.LoyaltyPoints ?? 15) points</strong> available! (TEST: Always 15 points)</p>
+                            <p class="mb-3 text-muted">Amount: <strong>$@carWashCharges.ToString("F2")</strong></p>
+                            <div class="d-flex flex-column gap-3 align-items-center">
+                                @* Always show 5 points option for testing *@
+                                @{
+                                    var halfOffAmount = carWashCharges / 2;
+                                }
+                                <button @onclick="@(() => SelectLoyaltyRedemption(LoyaltyRedemptionType.HalfPrice))"
+                                        class="btn btn-warning btn-lg w-75 @(redemptionType == LoyaltyRedemptionType.HalfPrice ? "border-primary" : "")"
+                                        style="border-width: 3px;" title="Use 5 points for 50% off">
+                                    <i class="bi bi-star me-2"></i>
+                                    5 Points = 50% OFF<br>
+                                    <small>Pay $@halfOffAmount.ToString("F2") instead of $@carWashCharges.ToString("F2")</small>
+                                </button>
+                                
+                                @* Always show 10 points option for testing *@
+                                <button @onclick="@(() => SelectLoyaltyRedemption(LoyaltyRedemptionType.FreeWash))"
+                                        class="btn btn-success btn-lg w-75 @(redemptionType == LoyaltyRedemptionType.FreeWash ? "border-primary" : "")"
+                                        style="border-width: 3px;" title="Use 10 points for free wash">
+                                    <i class="bi bi-gift me-2"></i>
+                                    10 Points = FREE WASH<br>
+                                    <small>No payment required! (Was $@carWashCharges.ToString("F2"))</small>
+                                </button>
+                                
+                                <button @onclick="@(() => SelectLoyaltyRedemption(LoyaltyRedemptionType.None))"
+                                        class="btn btn-outline-secondary btn-lg w-75 @(redemptionType == LoyaltyRedemptionType.None ? "border-primary" : "")"
+                                        style="border-width: 3px;" title="Pay full price and earn 1 loyalty point">
+                                    <i class="bi bi-cash me-2"></i>
+                                    Pay Full Price ($@carWashCharges.ToString("F2"))<br>
+                                    <small>Earn 1 loyalty point</small>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -125,11 +207,17 @@ else
     [Inject] NavigationManager NavigationManager { get; set; }
     [Inject] InvoiceService InvoiceService { get; set; }
     [Inject] IJSRuntime JS { get; set; }
+    [Inject] ICarService CarService { get; set; }
 
     bool isPaymentSelected = false;
     bool isProcessingPayment = false;
     bool isCancellingPayment = false;
     private decimal carWashCharges;
+    private CarDto selectedCar;
+    private bool useLoyaltyRedemption = false;
+    private LoyaltyRedemptionType redemptionType = LoyaltyRedemptionType.None;
+    private decimal originalAmount = 0m;
+    
     decimal CarWashCharges
     {
         get => carWashCharges;
@@ -141,7 +229,14 @@ else
             }
             else
             {
-                carWashCharges = Math.Round(value, 2);
+                value = Math.Round(value, 2);
+                carWashCharges = value;
+                
+                // If user manually enters amount and hasn't selected redemption yet, store as original amount
+                if (redemptionType == LoyaltyRedemptionType.None && value >= 5)
+                {
+                    originalAmount = value;
+                }
             }
         }
     }
@@ -150,16 +245,39 @@ else
 
     InvoiceDto invoiceDto = new()
     {
-        Service = "Full Wash",
         CustomerName = "Test Customer",
-        Amount = "8"
+        CustomerEmail = "customer@email.com",
+        CustomerPhone = "+1234567890",
+        VehicleType = "Car",
+        LicensePlate = "ABC123",
+        InvoiceNumber = $"INV-{DateTime.Now:yyyy-MM-dd-HHmmss}",
+        InvoiceDate = DateTime.Now,
+        ServiceItems = new List<ServiceItem>
+        {
+            new ServiceItem { Description = "Car Wash Service", Quantity = 1, UnitPrice = 0m, TotalPrice = 0m }
+        },
+        Subtotal = 0m,
+        TaxRate = 0.20m,
+        TaxAmount = 0m,
+        TotalAmount = 0m,
+        PaymentMethod = "Cash",
+        Notes = "Car wash service completed successfully."
     };
 
     PaymentMethod selectedPaymentMethod;
-    async Task PaymentMethodSelected(PaymentMethod method)
+    Task PaymentMethodSelected(PaymentMethod method)
     {
         selectedPaymentMethod = method;
+        
+        // Store original amount when payment method is first selected
+        if (originalAmount == 0)
+        {
+            originalAmount = carWashCharges;
+        }
+        
         isPaymentSelected = true;
+        StateHasChanged(); // Trigger UI refresh to show loyalty options
+        return Task.CompletedTask;
     }
 
 
@@ -179,11 +297,18 @@ else
                 ToastService.ShowSuccess(result.Message);
 
                 // Add transaction record
+                var description = redemptionType switch
+                {
+                    LoyaltyRedemptionType.FreeWash => $"FREE wash (redeemed 10 loyalty points)",
+                    LoyaltyRedemptionType.HalfPrice => $"Paid {carWashCharges:C} using {selectedPaymentMethod.ToString()} (redeemed 5 loyalty points - was {originalAmount:C})",
+                    _ => $"Paid {carWashCharges:C} using {selectedPaymentMethod.ToString()} (earned 1 loyalty point)"
+                };
+                
                 var dto = new TransactionDto
                 {
                     Amount = carWashCharges,
                     Date = DateTime.UtcNow,
-                    Description = $"Paid {carWashCharges} using {selectedPaymentMethod.ToString()}",
+                    Description = description,
                     PaymentMethod = selectedPaymentMethod
                 };
                 TransactionService.AddTransaction(dto);
@@ -205,6 +330,13 @@ else
                                     break;
                                 case EventType.PaymentComplete:
                                     ToastService.ShowSuccess("Payment completed successfully!");
+                                    
+                                    // Handle loyalty points logic
+                                    await HandleLoyaltyPoints();
+                                    
+                                    // Update invoice with actual payment data
+                                    UpdateInvoiceData();
+                                    
                                     isPaymentSelected = false; // Reset payment selection
                                     pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
                                     return;
@@ -282,6 +414,9 @@ else
 
     private async Task DownloadPdf()
     {
+        // Update invoice with current payment data
+        UpdateInvoiceData();
+        
         var pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
 
         if(pdfBytes is not null)
@@ -289,6 +424,211 @@ else
             string base64 = Convert.ToBase64String(pdfBytes);
 
             await JS.InvokeVoidAsync("downloadHelper", "Invoice.pdf", "application/pdf", base64);
+        }
+    }
+
+    private void UpdateInvoiceData()
+    {
+        decimal baseAmount = originalAmount > 0 ? originalAmount : carWashCharges;
+        
+        // Clear existing service items
+        invoiceDto.ServiceItems.Clear();
+        
+        // Add the main service item
+        string serviceDescription = redemptionType switch
+        {
+            LoyaltyRedemptionType.FreeWash => $"Car Wash Service (FREE with loyalty points - was ${baseAmount:F2})",
+            LoyaltyRedemptionType.HalfPrice => $"Car Wash Service (50% off with loyalty points - was ${baseAmount:F2})",
+            _ => "Car Wash Service"
+        };
+        
+        invoiceDto.ServiceItems.Add(new ServiceItem 
+        { 
+            Description = serviceDescription, 
+            Quantity = 1, 
+            UnitPrice = baseAmount, 
+            TotalPrice = baseAmount 
+        });
+        
+        // Add loyalty discount line if applicable
+        if (redemptionType != LoyaltyRedemptionType.None)
+        {
+            string discountDescription = redemptionType switch
+            {
+                LoyaltyRedemptionType.FreeWash => "Loyalty Discount (10 points)",
+                LoyaltyRedemptionType.HalfPrice => "Loyalty Discount (5 points)",
+                _ => ""
+            };
+            
+            if (!string.IsNullOrEmpty(discountDescription))
+            {
+                decimal discountAmount = baseAmount - carWashCharges;
+                
+                invoiceDto.ServiceItems.Add(new ServiceItem
+                {
+                    Description = discountDescription,
+                    Quantity = 1,
+                    UnitPrice = -discountAmount,
+                    TotalPrice = -discountAmount
+                });
+            }
+        }
+        
+        invoiceDto.Subtotal = carWashCharges;
+        invoiceDto.TaxAmount = carWashCharges * 0.20m;
+        invoiceDto.TotalAmount = carWashCharges * 1.20m;
+        invoiceDto.PaymentMethod = selectedPaymentMethod.ToString();
+        invoiceDto.InvoiceNumber = $"INV-{DateTime.Now:yyyy-MM-dd-HHmmss}";
+        invoiceDto.InvoiceDate = DateTime.Now;
+        
+        // Update car information in invoice
+        if (selectedCar != null)
+        {
+            invoiceDto.LicensePlate = selectedCar.LicensePlate;
+            invoiceDto.CustomerName = $"Vehicle Owner ({selectedCar.Name})";
+        }
+    }
+
+    public enum LoyaltyRedemptionType
+    {
+        None,
+        HalfPrice = 5, // 5 points for 50% off
+        FreeWash = 10 // 10 points for free wash
+    }
+
+    private decimal CalculateFinalAmount()
+    {
+        decimal baseAmount = originalAmount > 0 ? originalAmount : carWashCharges;
+        
+        switch (redemptionType)
+        {
+            case LoyaltyRedemptionType.None:
+                return baseAmount; // Full price - earn points
+            case LoyaltyRedemptionType.HalfPrice:
+                return baseAmount / 2; // 50% discount
+            case LoyaltyRedemptionType.FreeWash:
+                return 0.00m; // Free wash
+            default:
+                return baseAmount;
+        }
+    }
+
+    async void SelectLoyaltyRedemption(LoyaltyRedemptionType type)
+    {
+        redemptionType = type;
+        
+        // Special handling for free wash - direct redemption without transaction
+        if (type == LoyaltyRedemptionType.FreeWash)
+        {
+            if (selectedCar != null && selectedCar.LoyaltyPoints >= 10)
+            {
+                // Deduct points immediately
+                selectedCar.LoyaltyPoints -= 10;
+                CarService.UpdateCar(selectedCar);
+                
+                // Update invoice data
+                UpdateInvoiceData();
+                
+                // Generate PDF
+                pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
+                
+                // Show success message
+                ToastService.ShowSuccess($"FREE wash redeemed! Used 10 loyalty points. Remaining points: {selectedCar.LoyaltyPoints}");
+                
+                // Reset payment selection
+                isPaymentSelected = false;
+                
+                // Add transaction record for free wash
+                var dto = new TransactionDto
+                {
+                    Amount = 0.00m, // Free wash
+                    Date = DateTime.UtcNow,
+                    Description = "FREE wash (redeemed 10 loyalty points)",
+                    PaymentMethod = PaymentMethod.Other
+                };
+                TransactionService.AddTransaction(dto);
+                
+                StateHasChanged();
+                return;
+            }
+            else
+            {
+                ToastService.ShowError("Insufficient loyalty points for free wash!");
+                return;
+            }
+        }
+        
+        // Calculate new amount based on loyalty redemption
+        decimal newAmount = CalculateFinalAmount();
+        carWashCharges = newAmount;
+        
+        StateHasChanged();
+    }
+
+    private async Task HandleLoyaltyPoints()
+    {
+        if (selectedCar == null) return;
+
+        try
+        {
+            switch (redemptionType)
+            {
+                case LoyaltyRedemptionType.None:
+                    // Earn 1 point for paying full price
+                    selectedCar.LoyaltyPoints += 1;
+                    CarService.UpdateCar(selectedCar);
+                    ToastService.ShowInfo($"You earned 1 loyalty point! Total: {selectedCar.LoyaltyPoints} points");
+                    break;
+                    
+                case LoyaltyRedemptionType.HalfPrice:
+                    // Spend 5 points for 50% off
+                    if (selectedCar.LoyaltyPoints >= 5)
+                    {
+                        selectedCar.LoyaltyPoints -= 5;
+                        CarService.UpdateCar(selectedCar);
+                        ToastService.ShowSuccess($"Used 5 loyalty points for 50% off! Remaining points: {selectedCar.LoyaltyPoints}");
+                    }
+                    break;
+                    
+                case LoyaltyRedemptionType.FreeWash:
+                    // Spend 10 points for free wash
+                    if (selectedCar.LoyaltyPoints >= 10)
+                    {
+                        selectedCar.LoyaltyPoints -= 10;
+                        CarService.UpdateCar(selectedCar);
+                        ToastService.ShowSuccess($"Used 10 loyalty points for free wash! Remaining points: {selectedCar.LoyaltyPoints}");
+                    }
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Error updating loyalty points: {ex.Message}");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Check for car parameter in URL
+            var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+            if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("car", out var carJson))
+            {
+                var carData = Uri.UnescapeDataString(carJson);
+                selectedCar = System.Text.Json.JsonSerializer.Deserialize<CarDto>(carData);
+                
+                // Set default wash price if car is selected and amount is 0
+                if (selectedCar != null && carWashCharges == 0)
+                {
+                    carWashCharges = 25.00m; // Default wash price
+                    originalAmount = carWashCharges;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Error loading car data: {ex.Message}");
         }
     }
 
