@@ -298,7 +298,7 @@ else
             ToastService.ShowInfo("Starting payment...");
 
             // Use the new safe payment method
-            var result = await ApiClient.StartPaymentSafely(carWashCharges);
+            var result = await ApiClient.StartPaymentSafely(carWashCharges * 100);
 
             if (result.Success)
             {
