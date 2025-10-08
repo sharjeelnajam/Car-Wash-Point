@@ -8,6 +8,7 @@ namespace CarWashApp.Services
     public interface ICarService
     {
         CarDto GetCarById(int id);
+        CarDto GetCarByLicensePlate(string licensePlate);
         List<CarDto> GetAllCars();
         void AddCar(CarDto car);
         void UpdateCar(CarDto car);
@@ -29,6 +30,12 @@ namespace CarWashApp.Services
         {
             var carDto = carRepository.GetCarById(id);
             return carDto?.ToDto();
+        }
+
+        public CarDto GetCarByLicensePlate(string licensePlate)
+        {
+            var car = carRepository.GetCarByLicensePlate(licensePlate);
+            return car?.ToDto();
         }
 
         public void UpdateCar(CarDto car)

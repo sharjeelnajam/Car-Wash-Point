@@ -6,6 +6,7 @@ namespace CarWashApp.Repositories
     {
         void AddCar(Car car);
         Car GetCarById(int id);
+        Car GetCarByLicensePlate(string licensePlate);
         IEnumerable<Car> GetAllCars();
         void UpdateCar(Car car);
         void DeleteCar(int id);
@@ -36,6 +37,11 @@ namespace CarWashApp.Repositories
         public Car GetCarById(int id)
         {
             return context.Cars.FirstOrDefault(c => c.Id == id);
+        }
+
+        public Car GetCarByLicensePlate(string licensePlate)
+        {
+            return context.Cars.FirstOrDefault(c => c.LicensePlate == licensePlate);
         }
 
         public void UpdateCar(Car car)

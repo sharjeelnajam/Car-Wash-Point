@@ -68,6 +68,7 @@ namespace CarWashApp.Services.HttpClientServices
 
             var response = await client.PostAsync("/session", content);
 
+            var message = await response.Content.ReadAsStringAsync();
             // Always try to close session after cancellation attempt
             try
             {
@@ -78,6 +79,35 @@ namespace CarWashApp.Services.HttpClientServices
                 // Ignore errors when closing session after cancellation
             }
 
+            return response;
+        }
+
+        public async Task<HttpResponseMessage> StopPayment()
+        {
+            var requestBody = new
+            {
+                request = "StopPayment"
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync("/session", content);
+            return response;
+        }
+
+        public async Task<HttpResponseMessage> RefundAmount(decimal value)
+        {
+            var requestBody = new
+            {
+                request = "RefundAmount",
+                value = Math.Truncate(value)
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync("/session", content);
             return response;
         }
 

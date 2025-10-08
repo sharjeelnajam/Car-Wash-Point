@@ -486,8 +486,8 @@ else
             string base64 = Convert.ToBase64String(pdfBytes);
             string dataUrl = $"data:application/pdf;base64,{base64}";
             
-            // Open PDF in new browser tab
-            await JS.InvokeVoidAsync("open", dataUrl, "_blank");
+            // Open PDF in new browser tab using window.open
+            await JS.InvokeVoidAsync("eval", $"window.open('{dataUrl}', '_blank')");
         }
     }
 
@@ -503,21 +503,15 @@ else
     private void UpdateInvoiceData()
     {
         decimal baseAmount = originalAmount > 0 ? originalAmount : carWashCharges;
+        decimal finalAmount = carWashCharges; // This is the amount after any discounts
         
         // Clear existing service items
         invoiceDto.ServiceItems.Clear();
         
-        // Add the main service item
-        string serviceDescription = redemptionType switch
-        {
-            LoyaltyRedemptionType.FreeWash => $"Car Wash Service (FREE with loyalty points - was ${baseAmount:F2})",
-            LoyaltyRedemptionType.HalfPrice => $"Car Wash Service (50% off with loyalty points - was ${baseAmount:F2})",
-            _ => "Car Wash Service"
-        };
-        
+        // Add the main service item - always show the original price
         invoiceDto.ServiceItems.Add(new ServiceItem 
         { 
-            Description = serviceDescription, 
+            Description = "Car Wash Service", 
             Quantity = 1, 
             UnitPrice = baseAmount, 
             TotalPrice = baseAmount 
@@ -535,7 +529,7 @@ else
             
             if (!string.IsNullOrEmpty(discountDescription))
             {
-                decimal discountAmount = baseAmount - carWashCharges;
+                decimal discountAmount = baseAmount - finalAmount;
                 
                 invoiceDto.ServiceItems.Add(new ServiceItem
                 {
@@ -547,9 +541,10 @@ else
             }
         }
         
-        invoiceDto.Subtotal = carWashCharges;
-        invoiceDto.TaxAmount = carWashCharges * 0.20m;
-        invoiceDto.TotalAmount = carWashCharges * 1.20m;
+        // Calculate totals correctly
+        invoiceDto.Subtotal = finalAmount; // Subtotal is the amount after discounts
+        invoiceDto.TaxAmount = finalAmount * 0.20m; // Tax on the final amount
+        invoiceDto.TotalAmount = finalAmount * 1.20m; // Total including tax
         invoiceDto.PaymentMethod = selectedPaymentMethod.ToString();
         invoiceDto.InvoiceNumber = $"INV-{DateTime.Now:yyyy-MM-dd-HHmmss}";
         invoiceDto.InvoiceDate = DateTime.Now;

@@ -189,7 +189,31 @@ namespace CarWashApp.Services
                                     row.RelativeItem(); // Empty space
                                     row.ConstantItem(200).Column(totalsCol =>
                                     {
-                                        // Totals section without VAT
+                                        // Subtotal
+                                        totalsCol.Item().Row(subtotalRow =>
+                                        {
+                                            subtotalRow.RelativeItem().Text("SUBTOTAL:")
+                                                .FontSize(12)
+                                                .Bold();
+                                            subtotalRow.ConstantItem(80).AlignRight()
+                                                .Text($"${invoiceData.Subtotal:F2}")
+                                                .FontSize(12)
+                                                .Bold();
+                                        });
+
+                                        // Tax
+                                        totalsCol.Item().Row(taxRow =>
+                                        {
+                                            taxRow.RelativeItem().Text($"TAX ({(invoiceData.TaxRate * 100):F0}%):")
+                                                .FontSize(12)
+                                                .Bold();
+                                            taxRow.ConstantItem(80).AlignRight()
+                                                .Text($"${invoiceData.TaxAmount:F2}")
+                                                .FontSize(12)
+                                                .Bold();
+                                        });
+
+                                        // Total
                                         totalsCol.Item().Row(totalRow =>
                                         {
                                             totalRow.RelativeItem().Text("TOTAL:")

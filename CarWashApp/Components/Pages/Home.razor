@@ -44,7 +44,7 @@
     {
         if (!string.IsNullOrEmpty(searchText))
         {
-            var car = CarService.GetAllCars().Find(car => car.LicensePlate == searchText.Trim());
+            var car = CarService.GetCarByLicensePlate(searchText.Trim());
             if (car != null)
             {
                 NavigationManager.NavigateTo($"car-detail/{car.LicensePlate}");
