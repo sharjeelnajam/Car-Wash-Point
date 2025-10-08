@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using Blazored.Toast.Services
 @using CarWashApp.Services
 
 <PageTitle>Home Page</PageTitle>
@@ -36,6 +37,7 @@
 @code {
     [Inject] NavigationManager NavigationManager { get; set; }
     [Inject] ICarService CarService { get; set; }
+    [Inject] IToastService ToastService { get; set; }
     string searchText = string.Empty;
 
     void SearchCar()
@@ -49,8 +51,7 @@
             }
             else
             {
-                // Handle case where car is not found
-                Console.WriteLine("Car not found");
+                ToastService.ShowError($"Car not found for {searchText}");
             }
         }
     }

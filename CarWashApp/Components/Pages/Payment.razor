@@ -235,7 +235,7 @@ else
             }
             else
             {
-                value = Math.Round(value, 2);
+                value = Math.Truncate(value * 100) / 100;
                 carWashCharges = value;
                 
                 // Store the user-entered amount as original amount if it's valid

@@ -37,7 +37,7 @@ namespace CarWashApp.Services.HttpClientServices
             var requestBody = new
             {
                 request = "PayAmount",
-                value = value
+                value = Math.Truncate(value)
             };
 
             var json = JsonSerializer.Serialize(requestBody);
