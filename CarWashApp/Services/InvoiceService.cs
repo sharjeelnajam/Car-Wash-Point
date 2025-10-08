@@ -15,29 +15,8 @@ namespace CarWashApp.Services
             Console.WriteLine("Generating PDF...");
             try
             {
-                var sampleInvoice = new InvoiceDto
-                {
-                    CustomerName = "John Smith",
-                    CustomerEmail = "",  // Removed email
-                    CustomerPhone = "",  // Removed phone
-                    VehicleType = "Car",
-                    LicensePlate = "ABC123",
-                    InvoiceNumber = "INV-2024-001",
-                    InvoiceDate = DateTime.Now,
-                    ServiceItems = new List<ServiceItem>
-                    {
-                        new ServiceItem { Description = "Basic Wash, Wheels & Blow Dry", Quantity = 1, UnitPrice = 8.00m, TotalPrice = 8.00m },
-                        new ServiceItem { Description = "Tyre Shine", Quantity = 1, UnitPrice = 2.00m, TotalPrice = 2.00m },
-                        new ServiceItem { Description = "Tango Spray Wax", Quantity = 1, UnitPrice = 5.00m, TotalPrice = 5.00m },
-                        new ServiceItem { Description = "Vacuum Interior", Quantity = 1, UnitPrice = 5.00m, TotalPrice = 5.00m }
-                    },
-                    Subtotal = 20.00m,
-                    TaxRate = 0m,      // Removed VAT
-                    TaxAmount = 0m,     // Removed VAT
-                    TotalAmount = 20.00m,  // Updated to match subtotal without VAT
-                    PaymentMethod = "Card Payment",
-                    Notes = "Vehicle was in good condition. Customer requested extra attention to wheels."
-                };
+                // Use the actual invoice data passed to the method
+                var invoiceData = invoiceDto;
 
                 // ✅ Resolve image path under wwwroot/img/
                 var imagePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "img", "invoice-header.WEBP");
@@ -95,12 +74,12 @@ namespace CarWashApp.Services
                                         .FontColor(Colors.Blue.Medium);
                                     row.ConstantItem(200).AlignRight().Column(invoiceCol =>
                                     {
-                                        invoiceCol.Item().Text($"Invoice #: {invoiceDto.InvoiceNumber}")
+                                        invoiceCol.Item().Text($"Invoice #: {invoiceData.InvoiceNumber}")
                                             .FontSize(12)
                                             .Bold();
-                                        invoiceCol.Item().Text($"Date: {invoiceDto.InvoiceDate:dd/MM/yyyy}")
+                                        invoiceCol.Item().Text($"Date: {invoiceData.InvoiceDate:dd/MM/yyyy}")
                                             .FontSize(12);
-                                        invoiceCol.Item().Text($"Time: {invoiceDto.InvoiceDate:HH:mm}")
+                                        invoiceCol.Item().Text($"Time: {invoiceData.InvoiceDate:HH:mm}")
                                             .FontSize(12);
                                     });
                                 });
@@ -116,7 +95,7 @@ namespace CarWashApp.Services
                                             .FontSize(14)
                                             .Bold()
                                             .FontColor(Colors.Grey.Medium);
-                                        customerCol.Item().PaddingTop(5).Text(invoiceDto.CustomerName)
+                                        customerCol.Item().PaddingTop(5).Text(invoiceData.CustomerName)
                                             .FontSize(12)
                                             .Bold();
                                         // Email and phone removed per requirement
@@ -128,9 +107,9 @@ namespace CarWashApp.Services
                                             .FontSize(14)
                                             .Bold()
                                             .FontColor(Colors.Grey.Medium);
-                                        vehicleCol.Item().PaddingTop(5).Text($"Type: {invoiceDto.VehicleType}")
+                                        vehicleCol.Item().PaddingTop(5).Text($"Type: {invoiceData.VehicleType}")
                                             .FontSize(12);
-                                        vehicleCol.Item().Text($"License Plate: {invoiceDto.LicensePlate}")
+                                        vehicleCol.Item().Text($"License Plate: {invoiceData.LicensePlate}")
                                             .FontSize(12)
                                             .Bold();
                                     });
@@ -178,7 +157,7 @@ namespace CarWashApp.Services
                                     });
 
                                     // Service Items
-                                    foreach (var item in invoiceDto.ServiceItems)
+                                    foreach (var item in invoiceData.ServiceItems)
                                     {
                                         table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Medium)
                                             .Padding(8)
@@ -218,7 +197,7 @@ namespace CarWashApp.Services
                                                 .Bold()
                                                 .FontColor(Colors.Blue.Medium);
                                             totalRow.ConstantItem(80).AlignRight()
-                                                .Text($"£{invoiceDto.TotalAmount:F2}")
+                                                .Text($"£{invoiceData.TotalAmount:F2}")
                                                 .FontSize(14)
                                                 .Bold()
                                                 .FontColor(Colors.Blue.Medium);
@@ -229,24 +208,24 @@ namespace CarWashApp.Services
                                 col.Item().PaddingVertical(20);
 
                                 // Payment Information
-                                if (!string.IsNullOrEmpty(invoiceDto.PaymentMethod))
+                                if (!string.IsNullOrEmpty(invoiceData.PaymentMethod))
                                 {
                                     col.Item().Row(row =>
                                     {
-                                        row.RelativeItem().Text($"Payment Method: {invoiceDto.PaymentMethod}")
+                                        row.RelativeItem().Text($"Payment Method: {invoiceData.PaymentMethod}")
                                             .FontSize(12)
                                             .Bold();
                                     });
                                 }
 
                                 // Notes
-                                if (!string.IsNullOrEmpty(invoiceDto.Notes))
+                                if (!string.IsNullOrEmpty(invoiceData.Notes))
                                 {
                                     col.Item().PaddingTop(20).Text("Notes:")
                                         .FontSize(12)
                                         .Bold()
                                         .FontColor(Colors.Grey.Medium);
-                                    col.Item().PaddingTop(5).Text(invoiceDto.Notes)
+                                    col.Item().PaddingTop(5).Text(invoiceData.Notes)
                                         .FontSize(10);
                                 }
 

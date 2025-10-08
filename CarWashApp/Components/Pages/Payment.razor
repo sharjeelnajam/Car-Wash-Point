@@ -9,6 +9,7 @@
 @using System.Text.Json
 @using System.Text
 @using Microsoft.AspNetCore.WebUtilities
+@using CarWashApp.Components.Shared
 
 <button class="btn btn-lg btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/"))"> Home</button>
 
@@ -193,10 +194,6 @@ else
                                     class="btn btn-info btn-lg w-75 text-white" type="button">
                                 <i class="bi bi-credit-card-2-front me-2"></i>Card
                             </button>
-                            <button @onclick="DownloadPdf"
-                                    class="btn btn-secondary btn-lg w-75 text-white" type="button">
-                                <i class="bi bi-credit-card-2-front me-2"></i>Download PDF
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -205,6 +202,48 @@ else
         </div>
     </div>
 }
+
+<!-- Invoice PDF Popup -->
+<Popup IsOpen="@showInvoicePopup" 
+       IsOpenChanged="@((bool isOpen) => showInvoicePopup = isOpen)"
+       Title="Invoice - Payment Complete"
+       CloseOnBackdropClick="true">
+    <div class="text-center">
+        @if (pdfBytes != null)
+        {
+            <div class="mb-3">
+                <p class="lead">Your payment has been processed successfully!</p>
+                <p class="text-muted">Invoice #@invoiceDto.InvoiceNumber</p>
+            </div>
+            
+            <div class="d-flex flex-column gap-3 align-items-center">
+                <button @onclick="ViewPdfInBrowser" 
+                        class="btn btn-primary btn-lg w-75">
+                    <i class="bi bi-eye me-2"></i>View Invoice
+                </button>
+                
+                <button @onclick="DownloadPdfFromPopup" 
+                        class="btn btn-success btn-lg w-75">
+                    <i class="bi bi-download me-2"></i>Download PDF
+                </button>
+                
+                <button @onclick="@(() => showInvoicePopup = false)" 
+                        class="btn btn-secondary w-75">
+                    <i class="bi bi-x-circle me-2"></i>Close
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Generating invoice...</span>
+                </div>
+                <p class="mt-2">Generating your invoice...</p>
+            </div>
+        }
+    </div>
+</Popup>
 
 @code {
     [Inject] IToastService ToastService { get; set; }
@@ -218,6 +257,7 @@ else
     bool isPaymentSelected = false;
     bool isProcessingPayment = false;
     bool isCancellingPayment = false;
+    bool showInvoicePopup = false;
     private decimal carWashCharges;
     private CarDto selectedCar;
     private bool useLoyaltyRedemption = false;
@@ -346,8 +386,11 @@ else
                                     // Update invoice with actual payment data
                                     UpdateInvoiceData();
                                     
-                                    isPaymentSelected = false; // Reset payment selection
+                                    // Generate PDF and show popup
                                     pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
+                                    showInvoicePopup = true;
+                                    isPaymentSelected = false; // Reset payment selection
+                                    StateHasChanged(); // Refresh UI to show popup
                                     return;
                                 case EventType.CancelComplete:
                                     ToastService.ShowWarning("Payment was canceled.");
@@ -433,6 +476,27 @@ else
             string base64 = Convert.ToBase64String(pdfBytes);
 
             await JS.InvokeVoidAsync("downloadHelper", "Invoice.pdf", "application/pdf", base64);
+        }
+    }
+
+    private async Task ViewPdfInBrowser()
+    {
+        if (pdfBytes != null)
+        {
+            string base64 = Convert.ToBase64String(pdfBytes);
+            string dataUrl = $"data:application/pdf;base64,{base64}";
+            
+            // Open PDF in new browser tab
+            await JS.InvokeVoidAsync("open", dataUrl, "_blank");
+        }
+    }
+
+    private async Task DownloadPdfFromPopup()
+    {
+        if (pdfBytes != null)
+        {
+            string base64 = Convert.ToBase64String(pdfBytes);
+            await JS.InvokeVoidAsync("downloadHelper", $"Invoice_{invoiceDto.InvoiceNumber}.pdf", "application/pdf", base64);
         }
     }
 
@@ -552,14 +616,16 @@ else
                 // Update invoice data
                 UpdateInvoiceData();
                 
-                // Generate PDF
+                // Generate PDF and show popup
                 pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
+                showInvoicePopup = true;
                 
                 // Show success message
                 ToastService.ShowSuccess($"FREE wash redeemed! Used 10 loyalty points. Remaining points: {selectedCar.LoyaltyPoints}");
                 
                 // Reset payment selection
                 isPaymentSelected = false;
+                StateHasChanged(); // Refresh UI to show popup
                 
                 // Add transaction record for free wash
                 var dto = new TransactionDto
