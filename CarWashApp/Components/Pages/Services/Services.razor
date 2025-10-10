@@ -66,6 +66,7 @@
         public string? Subtitle { get; set; }
         public string? Description { get; set; }
         public string? IconUrl { get; set; }
+        public decimal Amount { get; set; }
     }
 
     [Parameter, NotNull]
@@ -76,6 +77,7 @@
             Title = "Car",
             Subtitle = "Wash, Wheels & Blow Dry £8",
             IconUrl = "img/car.png",
+            Amount = 8.00m,
             Description = @"Wash, Wheels & Blow Dry £8
 
 Extra Service Singular or Multiple
@@ -101,6 +103,7 @@ Seat Wash £5 (please include option to purchase multiple Seat Wash as there can
             Title = "Van",
             Subtitle = "Wash, Wheels & Blow Dry £8 - £12",
             IconUrl = "img/truck.png",
+            Amount = 10.00m, // Using middle value for Van
             Description = @"Small Wash, Wheels & Blow Dry £8
 
 Medium Wash, Wheels & Blow Dry £9
@@ -130,6 +133,7 @@ Seat Wash £5 (please include option to purchase multiple Seat Wash as there can
             Title = "Taxi",
             Subtitle = "Wash, Wheels & Blow Dry £7",
             IconUrl = "img/taxi.png",
+            Amount = 7.00m,
             Description = @"Wash, Wheels & Blow Dry £7
 
 Extra Service Singular or Multiple
@@ -156,7 +160,11 @@ Seat Wash £5 (please include option to purchase multiple Seat Wash as there can
     {
         // Logic to handle confirmation
         showPopup = false;
-        NavigationManager.NavigateTo("payment");
+        
+        // Serialize the selected vehicle data and pass it to the payment page
+        var vehicleJson = System.Text.Json.JsonSerializer.Serialize(selectedVehicle);
+        var encodedVehicle = Uri.EscapeDataString(vehicleJson);
+        NavigationManager.NavigateTo($"payment?vehicle={encodedVehicle}");
     }
 
     private void SelectVehicle(VehicleType vehicle)

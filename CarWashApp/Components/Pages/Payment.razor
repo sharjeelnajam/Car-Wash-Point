@@ -64,7 +64,7 @@
                     else
                     {
                         <i class="bi bi-x-circle me-2"></i>
-                        @:Cancel Payment
+                        @:Cancel Session
                     }
                 </button>
 
@@ -93,7 +93,7 @@ else
     <div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-md-8 col-lg-6">
-                <!-- Car Information Card -->
+                <!-- Vehicle Information Card -->
                 @if (selectedCar != null)
                 {
                     <div class="card mb-4">
@@ -107,9 +107,22 @@ else
                         </div>
                     </div>
                 }
+                else if (selectedVehicle != null)
+                {
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-car-front me-2"></i>Selected Service</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-1"><strong>Service:</strong> @selectedVehicle.Title</p>
+                            <p class="mb-1"><strong>Description:</strong> @selectedVehicle.Subtitle</p>
+                            <p class="mb-0"><strong>Amount:</strong> <span class="badge bg-success text-white">£@selectedVehicle.Amount.ToString("F2")</span></p>
+                        </div>
+                    </div>
+                }
 
                 <!-- Amount Input Section -->
-                @if (selectedCar != null)
+                @if (selectedCar != null || selectedVehicle != null)
                 {
                     <div class="card mb-4">
                         <div class="card-header bg-info text-white">
@@ -130,8 +143,8 @@ else
                     </div>
                 }
 
-                <!-- Loyalty Points Redemption Options - Always show if car data is available -->
-                @if (selectedCar != null) @* Temporarily show without payment selection for easier testing *@
+                <!-- Loyalty Points Redemption Options - Only show if car data is available -->
+                @if (selectedCar != null)
                 {
                     <div class="card mb-4">
                         <div class="card-header bg-warning text-dark">
@@ -174,6 +187,22 @@ else
                                         Pay full price today to earn 1 loyalty point!
                                     </div>
                                 }
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (selectedVehicle != null)
+                {
+                    <div class="card mb-4">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Loyalty Points Information</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <p class="mb-3">To use loyalty points, please select a registered vehicle first.</p>
+                            <p class="mb-3 text-muted">Amount: <strong>£@carWashCharges.ToString("F2")</strong></p>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Want to earn loyalty points?</strong> Register your vehicle to start earning points with each wash!
                             </div>
                         </div>
                     </div>
@@ -254,12 +283,22 @@ else
     [Inject] IJSRuntime JS { get; set; }
     [Inject] ICarService CarService { get; set; }
 
+    public class VehicleType
+    {
+        public string Title { get; set; } = "";
+        public string? Subtitle { get; set; }
+        public string? Description { get; set; }
+        public string? IconUrl { get; set; }
+        public decimal Amount { get; set; }
+    }
+
     bool isPaymentSelected = false;
     bool isProcessingPayment = false;
     bool isCancellingPayment = false;
     bool showInvoicePopup = false;
     private decimal carWashCharges;
     private CarDto selectedCar;
+    private VehicleType selectedVehicle;
     private bool useLoyaltyRedemption = false;
     private LoyaltyRedemptionType redemptionType = LoyaltyRedemptionType.None;
     private decimal originalAmount = 0m;
@@ -509,9 +548,10 @@ else
         invoiceDto.ServiceItems.Clear();
         
         // Add the main service item - always show the original price
+        string serviceDescription = selectedVehicle != null ? $"{selectedVehicle.Title} Wash Service" : "Car Wash Service";
         invoiceDto.ServiceItems.Add(new ServiceItem 
         { 
-            Description = "Car Wash Service", 
+            Description = serviceDescription, 
             Quantity = 1, 
             UnitPrice = baseAmount, 
             TotalPrice = baseAmount 
@@ -549,8 +589,13 @@ else
         invoiceDto.InvoiceNumber = $"INV-{DateTime.Now:yyyy-MM-dd-HHmmss}";
         invoiceDto.InvoiceDate = DateTime.Now;
         
-        // Update car information in invoice
-        if (selectedCar != null)
+        // Update vehicle information in invoice
+        if (selectedVehicle != null)
+        {
+            invoiceDto.VehicleType = selectedVehicle.Title;
+            invoiceDto.CustomerName = $"Vehicle Owner ({selectedVehicle.Title})";
+        }
+        else if (selectedCar != null)
         {
             invoiceDto.LicensePlate = selectedCar.LicensePlate;
             invoiceDto.CustomerName = $"Vehicle Owner ({selectedCar.Name})";
@@ -703,9 +748,24 @@ else
     {
         try
         {
-            // Check for car parameter in URL
             var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-            if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("car", out var carJson))
+            var queryParams = QueryHelpers.ParseQuery(uri.Query);
+            
+            // Check for vehicle parameter from Services page
+            if (queryParams.TryGetValue("vehicle", out var vehicleJson))
+            {
+                var vehicleData = Uri.UnescapeDataString(vehicleJson);
+                selectedVehicle = System.Text.Json.JsonSerializer.Deserialize<VehicleType>(vehicleData);
+                
+                // Set the amount from the selected vehicle
+                if (selectedVehicle != null)
+                {
+                    carWashCharges = selectedVehicle.Amount;
+                    originalAmount = carWashCharges;
+                }
+            }
+            // Check for car parameter in URL (existing functionality)
+            else if (queryParams.TryGetValue("car", out var carJson))
             {
                 var carData = Uri.UnescapeDataString(carJson);
                 selectedCar = System.Text.Json.JsonSerializer.Deserialize<CarDto>(carData);
@@ -720,7 +780,7 @@ else
         }
         catch (Exception ex)
         {
-            ToastService.ShowError($"Error loading car data: {ex.Message}");
+            ToastService.ShowError($"Error loading data: {ex.Message}");
         }
     }
 
