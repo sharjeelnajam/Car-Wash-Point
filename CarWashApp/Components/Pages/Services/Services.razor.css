@@ -9,21 +9,25 @@
 
 .menu-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* exactly 4 per row */
-    gap: 14px;
-    padding: 6px 0;
+    grid-template-columns: repeat(3, 1fr); /* exactly 3 per row for the 3 vehicle types */
+    gap: 16px;
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 .tile {
     background: var(--tile);
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 14px;
-    padding: 12px;
+    border-radius: 12px;
+    padding: 16px 12px;
     text-align: left;
     color: var(--text);
     cursor: pointer;
     transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
     box-shadow: 0 1px 0 rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.25);
+    min-height: 120px;
+    max-height: 140px;
 }
 
     .tile:focus-visible,
@@ -36,19 +40,19 @@
     }
 
 .icon-wrap {
-    width: 60px;
-    height: 60px;
-    border-radius: 12px;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
     background: #fff;
     display: grid;
     place-items: center;
     box-shadow: 0 2px 10px rgba(0,0,0,.25), inset 0 0 0 1px rgba(0,0,0,.06);
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .icon {
-    max-width: 46px;
-    max-height: 46px;
+    max-width: 36px;
+    max-height: 36px;
     display: block;
 }
 
@@ -58,14 +62,16 @@
 }
 
 .title {
-    font-size: .98rem;
+    font-size: .9rem;
     font-weight: 600;
+    margin-bottom: 4px;
 }
 
 .subtitle {
     margin-top: 2px;
-    font-size: .82rem;
+    font-size: .75rem;
     color: var(--muted);
+    line-height: 1.3;
 }
 
 /* Skeleton state */
@@ -108,13 +114,6 @@
 /* Optional dark page backdrop to match screenshot */
 html, body {
     background: var(--bg);
-}
-
-/* 4-per-row grid (already added earlier) */
-.menu-grid {
-    display: grid;
-    grid-template-columns: repeat(4,1fr);
-    gap: 14px;
 }
 
 /* ---- Modal styles ---- */
