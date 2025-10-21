@@ -1,41 +1,432 @@
 @page "/transaction-list"
+@using CarWashApp.Models.DTOs
+@using CarWashApp.Services
+@using CarWashApp.Models
+@using CarWashApp.Components.Shared
 
 <PageTitle>Transaction List</PageTitle>
 
-<h3>Transaction List</h3>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3><i class="bi bi-list-check me-2"></i>Transaction List</h3>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-sm" @onclick="RefreshTransactions">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                    <span class="badge bg-info fs-6">Total: @transactions.Count transactions</span>
+                </div>
+            </div>
 
-<table class="table table-bordered table-striped">
+            @if (isLoading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading transactions...</p>
+                </div>
+            }
+            else if (transactions.Any())
+            {
+                <div class="card shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped mb-0">
     <thead class="table-primary">
         <tr>
-            <th>Timestamp</th>
-            <th>Transaction ID</th>
-            <th>Transaction Type</th>
-            <th>Value</th>
+                                        <th><i class="bi bi-hash me-1"></i>ID</th>
+                                        <th><i class="bi bi-calendar-event me-1"></i>Date & Time</th>
+                                        <th><i class="bi bi-currency-dollar me-1"></i>Amount</th>
+                                        <th><i class="bi bi-credit-card me-1"></i>Payment Method</th>
+                                        <th><i class="bi bi-file-text me-1"></i>Description</th>
+                                        <th class="text-center"><i class="bi bi-eye me-1"></i>Details</th>
         </tr>
     </thead>
     <tbody>
-        @foreach (var log in dummy.Logs)
-        {
-            <tr>
-                <td>@log.Timestamp</td>
-                <td>@log.TransactionId</td>
-                <td>@log.TransactionType</td>
-                <td>@log.Value</td>
+                                    @foreach (var transaction in transactions.OrderByDescending(t => t.Date))
+                                    {
+                                        <tr class="transaction-row" @onclick="@(() => ShowTransactionDetails(transaction))" style="cursor: pointer;" title="Click to view transaction details">
+                                            <td>
+                                                <span class="badge bg-secondary">#@transaction.Id</span>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-medium">@transaction.Date.ToString("MMM dd, yyyy")</span>
+                                                    <small class="text-muted">@transaction.Date.ToString("HH:mm:ss")</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if (transaction.Amount > 0)
+                                                {
+                                                    <span class="badge bg-success fs-6">$@transaction.Amount.ToString("F2")</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-warning text-dark fs-6">FREE</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @switch (transaction.PaymentMethod)
+                                                {
+                                                    case PaymentMethod.Cash:
+                                                        <span class="badge bg-primary">
+                                                            <i class="bi bi-cash-coin me-1"></i>Cash
+                                                        </span>
+                                                        break;
+                                                    case PaymentMethod.Card:
+                                                        <span class="badge bg-info">
+                                                            <i class="bi bi-credit-card me-1"></i>Card
+                                                        </span>
+                                                        break;
+                                                    case PaymentMethod.Other:
+                                                        <span class="badge bg-secondary">
+                                                            <i class="bi bi-question-circle me-1"></i>Other
+                                                        </span>
+                                                        break;
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="text-wrap" style="max-width: 300px;">
+                                                    @transaction.Description
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="@(() => ShowTransactionDetails(transaction))" @onclick:stopPropagation="true">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                            </td>
             </tr>
         }
     </tbody>
 </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="row mt-4">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">
+                                    <i class="bi bi-cash-coin me-2"></i>Cash Payments
+                                </h5>
+                                <h3>@transactions.Count(t => t.PaymentMethod == PaymentMethod.Cash)</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">
+                                    <i class="bi bi-credit-card me-2"></i>Card Payments
+                                </h5>
+                                <h3>@transactions.Count(t => t.PaymentMethod == PaymentMethod.Card)</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">
+                                    <i class="bi bi-currency-dollar me-2"></i>Total Revenue
+                                </h5>
+                                <h3>$@transactions.Where(t => t.Amount > 0).Sum(t => t.Amount).ToString("F2")</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-dark">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">
+                                    <i class="bi bi-gift me-2"></i>Free Washes
+                                </h5>
+                                <h3>@transactions.Count(t => t.Amount == 0)</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox display-1 text-muted"></i>
+                    <h4 class="mt-3 text-muted">No Transactions Found</h4>
+                    <p class="text-muted">There are no transactions recorded yet.</p>
+                    <button class="btn btn-primary" @onclick="RefreshTransactions">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Transaction Details Modal -->
+<Popup IsOpen="@showTransactionModal" 
+       IsOpenChanged="@((bool isOpen) => showTransactionModal = isOpen)"
+       Title="Transaction Details"
+       CloseOnBackdropClick="true">
+    @if (selectedTransaction != null)
+    {
+        <div class="transaction-details">
+            <!-- Transaction Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="bi bi-receipt me-2"></i>Transaction #@selectedTransaction.Id
+                        </h4>
+                        <span class="badge bg-primary fs-6">@selectedTransaction.Date.ToString("MMM dd, yyyy HH:mm")</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction Information -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Transaction Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-dark">Amount:</label>
+                                <div>
+                                    @if (selectedTransaction.Amount > 0)
+                                    {
+                                        <span class="badge bg-success fs-5">$@selectedTransaction.Amount.ToString("F2")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark fs-5">FREE WASH</span>
+                                    }
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-dark">Payment Method:</label>
+                                <div>
+                                    @switch (selectedTransaction.PaymentMethod)
+                                    {
+                                        case PaymentMethod.Cash:
+                                            <span class="badge bg-primary fs-6">
+                                                <i class="bi bi-cash-coin me-1"></i>Cash Payment
+                                            </span>
+                                            break;
+                                        case PaymentMethod.Card:
+                                            <span class="badge bg-info fs-6">
+                                                <i class="bi bi-credit-card me-1"></i>Card Payment
+                                            </span>
+                                            break;
+                                        case PaymentMethod.Other:
+                                            <span class="badge bg-secondary fs-6">
+                                                <i class="bi bi-question-circle me-1"></i>Other
+                                            </span>
+                                            break;
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-dark">Date & Time:</label>
+                                <div class="text-dark">
+                                    <i class="bi bi-calendar-event me-1"></i>@selectedTransaction.Date.ToString("MMMM dd, yyyy")
+                                    <br>
+                                    <i class="bi bi-clock me-1"></i>@selectedTransaction.Date.ToString("HH:mm:ss")
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="bi bi-car-front me-2"></i>Vehicle Information</h6>
+                        </div>
+                        <div class="card-body">
+                            @{
+                                var carInfo = ExtractCarInfoFromDescription(selectedTransaction.Description);
+                            }
+                            
+                            @if (carInfo.HasCarInfo)
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold text-dark">Vehicle Name:</label>
+                                    <div class="text-dark">
+                                        <i class="bi bi-car-front me-1"></i>@carInfo.CarName
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold text-dark">License Plate:</label>
+                                    <div class="text-dark">
+                                        <i class="bi bi-tag me-1"></i>@carInfo.LicensePlate
+                                    </div>
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(carInfo.CarColor))
+                                {
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold text-dark">Color:</label>
+                                        <div class="text-dark">
+                                            <i class="bi bi-palette me-1"></i>@carInfo.CarColor
+                                        </div>
+                                    </div>
+                                }
+
+                                @if (carInfo.LoyaltyPointsUsed > 0)
+                                {
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold text-dark">Loyalty Points Used:</label>
+                                        <div class="text-dark">
+                                            <i class="bi bi-star me-1"></i>@carInfo.LoyaltyPointsUsed points
+                                        </div>
+                                    </div>
+                                }
+
+                                @if (carInfo.LoyaltyPointsEarned > 0)
+                                {
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold text-dark">Loyalty Points Earned:</label>
+                                        <div class="text-dark">
+                                            <i class="bi bi-star-fill me-1"></i>@carInfo.LoyaltyPointsEarned points
+                                        </div>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="text-center text-muted">
+                                    <i class="bi bi-question-circle display-4"></i>
+                                    <p class="mt-2">No vehicle information available</p>
+                                    <small>This transaction may be for a service without a registered vehicle</small>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction Description -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h6 class="mb-0"><i class="bi bi-file-text me-2"></i>Transaction Description</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-0 text-dark">@selectedTransaction.Description</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</Popup>
 
 @code {
-    private Responses.Logs.TransactionList.TransactionList dummy = new()
+    [Inject] ITransactionService TransactionService { get; set; }
+    
+    private List<TransactionDto> transactions = new();
+    private bool isLoading = true;
+    private bool showTransactionModal = false;
+    private TransactionDto? selectedTransaction = null;
+
+    protected override async Task OnInitializedAsync()
     {
-        ResponseCode = 200,
-        ResponseLogCount = 3,
-        Logs = new List<Responses.Logs.TransactionList.TransactionLog>
+        await LoadTransactions();
+    }
+
+    private async Task LoadTransactions()
+    {
+        try
         {
-            new() { Timestamp = "2024-06-01 10:00:00", TransactionId = "TXN001", TransactionType = "Payment", Value = 500 },
-            new() { Timestamp = "2024-06-01 11:00:00", TransactionId = "TXN002", TransactionType = "Refund", Value = 200 },
-            new() { Timestamp = "2024-06-01 12:00:00", TransactionId = "TXN003", TransactionType = "Payment", Value = 700 }
+            isLoading = true;
+            StateHasChanged();
+            
+            transactions = TransactionService.GetAllTransactions();
         }
-    };
+        catch (Exception ex)
+        {
+            // Handle error - you might want to show a toast notification here
+            Console.WriteLine($"Error loading transactions: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshTransactions()
+    {
+        await LoadTransactions();
+    }
+
+    private void ShowTransactionDetails(TransactionDto transaction)
+    {
+        selectedTransaction = transaction;
+        showTransactionModal = true;
+        StateHasChanged();
+    }
+
+    // Helper class to extract car information from transaction description
+    private CarInfo ExtractCarInfoFromDescription(string description)
+    {
+        var carInfo = new CarInfo();
+        
+        if (string.IsNullOrEmpty(description))
+            return carInfo;
+
+        // Try to extract car information from patterns like "Corolla (ABC123) - Red"
+        // Pattern: "for CarName (LicensePlate) - Color"
+        var carInfoMatch = System.Text.RegularExpressions.Regex.Match(description, @"for\s+([^(]+)\s+\(([^)]+)\)\s*-\s*([^(]+)");
+        if (carInfoMatch.Success)
+        {
+            carInfo.CarName = carInfoMatch.Groups[1].Value.Trim();
+            carInfo.LicensePlate = carInfoMatch.Groups[2].Value.Trim();
+            carInfo.CarColor = carInfoMatch.Groups[3].Value.Trim();
+            carInfo.HasCarInfo = true;
+        }
+        else
+        {
+            // Try alternative pattern for service transactions: "ServiceName Service"
+            var serviceMatch = System.Text.RegularExpressions.Regex.Match(description, @"for\s+([^(]+)\s+Service");
+            if (serviceMatch.Success)
+            {
+                carInfo.CarName = serviceMatch.Groups[1].Value.Trim();
+                carInfo.HasCarInfo = true;
+            }
+        }
+
+        // Extract loyalty points information
+        var loyaltyUsedMatch = System.Text.RegularExpressions.Regex.Match(description, @"(\d+)\s+loyalty\s+points");
+        if (loyaltyUsedMatch.Success)
+        {
+            carInfo.LoyaltyPointsUsed = int.Parse(loyaltyUsedMatch.Groups[1].Value);
+        }
+
+        var loyaltyEarnedMatch = System.Text.RegularExpressions.Regex.Match(description, @"earned\s+(\d+)\s+loyalty\s+point");
+        if (loyaltyEarnedMatch.Success)
+        {
+            carInfo.LoyaltyPointsEarned = int.Parse(loyaltyEarnedMatch.Groups[1].Value);
+        }
+
+        return carInfo;
+    }
+
+    // Helper class to hold extracted car information
+    private class CarInfo
+    {
+        public bool HasCarInfo { get; set; }
+        public string CarName { get; set; } = "";
+        public string LicensePlate { get; set; } = "";
+        public string CarColor { get; set; } = "";
+        public int LoyaltyPointsUsed { get; set; }
+        public int LoyaltyPointsEarned { get; set; }
+    }
 }

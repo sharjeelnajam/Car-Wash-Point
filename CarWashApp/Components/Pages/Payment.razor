@@ -376,6 +376,14 @@ else
         isProcessingPayment = true;
         try
         {
+            // Handle card payments differently from cash payments
+            if (selectedPaymentMethod == PaymentMethod.Card)
+            {
+                await ProcessCardPayment();
+                return;
+            }
+
+            // Handle cash payments (existing logic)
             ToastService.ShowInfo("Starting payment...");
 
             // Use the new safe payment method
@@ -389,9 +397,9 @@ else
                 // Add transaction record
                 var description = redemptionType switch
                 {
-                    LoyaltyRedemptionType.FreeWash => $"FREE wash (redeemed 10 loyalty points)",
-                    LoyaltyRedemptionType.HalfPrice => $"Paid {carWashCharges:C} using {selectedPaymentMethod.ToString()} (redeemed 5 loyalty points - was {originalAmount:C})",
-                    _ => $"Paid {carWashCharges:C} using {selectedPaymentMethod.ToString()} (earned 1 loyalty point)"
+                    LoyaltyRedemptionType.FreeWash => $"FREE wash for {GetCarInfo()} (redeemed 10 loyalty points)",
+                    LoyaltyRedemptionType.HalfPrice => $"Paid {carWashCharges:C} using {selectedPaymentMethod.ToString()} for {GetCarInfo()} (redeemed 5 loyalty points - was {originalAmount:C})",
+                    _ => $"Paid {carWashCharges:C} using {selectedPaymentMethod.ToString()} for {GetCarInfo()} (earned 1 loyalty point)"
                 };
                 
                 var dto = new TransactionDto
@@ -470,11 +478,66 @@ else
         }
     }
 
+    async Task ProcessCardPayment()
+    {
+        try
+        {
+            ToastService.ShowInfo("Processing card payment...");
+
+            // Add transaction record immediately for card payment
+            var description = redemptionType switch
+            {
+                LoyaltyRedemptionType.FreeWash => $"FREE wash for {GetCarInfo()} (redeemed 10 loyalty points)",
+                LoyaltyRedemptionType.HalfPrice => $"Paid {carWashCharges:C} using Card for {GetCarInfo()} (redeemed 5 loyalty points - was {originalAmount:C})",
+                _ => $"Paid {carWashCharges:C} using Card for {GetCarInfo()} (earned 1 loyalty point)"
+            };
+            
+            var dto = new TransactionDto
+            {
+                Amount = carWashCharges,
+                Date = DateTime.UtcNow,
+                Description = description,
+                PaymentMethod = PaymentMethod.Card
+            };
+            TransactionService.AddTransaction(dto);
+
+            // Handle loyalty points logic
+            await HandleLoyaltyPoints();
+            
+            // Update invoice with actual payment data
+            UpdateInvoiceData();
+            
+            // Generate PDF and show popup
+            pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
+            showInvoicePopup = true;
+            isPaymentSelected = false; // Reset payment selection
+            
+            // Show success message
+            ToastService.ShowSuccess("Card payment processed successfully!");
+            
+            StateHasChanged(); // Refresh UI to show popup
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Card payment error: {ex.Message}");
+        }
+    }
+
     async Task CancelPayment()
     {
         isCancellingPayment = true;
         try
         {
+            // Handle card payment cancellation differently
+            if (selectedPaymentMethod == PaymentMethod.Card)
+            {
+                ToastService.ShowInfo("Cancelling card payment...");
+                ToastService.ShowSuccess("Card payment cancelled successfully!");
+                isPaymentSelected = false; // Reset payment selection
+                return;
+            }
+
+            // Handle cash payment cancellation (existing logic)
             ToastService.ShowInfo("Cancelling payment...");
 
             // Use the new safe cancel method
@@ -674,7 +737,7 @@ else
                 {
                     Amount = 0.00m, // Free wash
                     Date = DateTime.UtcNow,
-                    Description = "FREE wash (redeemed 10 loyalty points)",
+                    Description = $"FREE wash for {GetCarInfo()} (redeemed 10 loyalty points)",
                     PaymentMethod = PaymentMethod.Other
                 };
                 TransactionService.AddTransaction(dto);
@@ -793,6 +856,22 @@ else
         Canceled,
         Stopped,
         Error
+    }
+
+    private string GetCarInfo()
+    {
+        if (selectedCar != null)
+        {
+            return $"{selectedCar.Name} ({selectedCar.LicensePlate}) - {selectedCar.Color}";
+        }
+        else if (selectedVehicle != null)
+        {
+            return $"{selectedVehicle.Title} Service";
+        }
+        else
+        {
+            return "Unknown Vehicle";
+        }
     }
 
 }
