@@ -115,9 +115,30 @@ else
                             <h5 class="mb-0"><i class="bi bi-car-front me-2"></i>Selected Service</h5>
                         </div>
                         <div class="card-body">
-                            <p class="mb-1"><strong>Service:</strong> @selectedVehicle.Title</p>
-                            <p class="mb-1"><strong>Description:</strong> @selectedVehicle.Subtitle</p>
-                            <p class="mb-0"><strong>Amount:</strong> <span class="badge bg-success text-white">£@selectedVehicle.Amount.ToString("F2")</span></p>
+                            <p class="mb-1"><strong>Vehicle:</strong> @selectedVehicle.Title</p>
+                            @if (!string.IsNullOrEmpty(selectedVehicle.VanSize))
+                            {
+                                <p class="mb-1"><strong>Van Size:</strong> @selectedVehicle.VanSize</p>
+                            }
+                            @if (!string.IsNullOrEmpty(selectedVehicle.WashPackage))
+                            {
+                                <p class="mb-1"><strong>Wash Package:</strong> @GetWashPackageName(selectedVehicle.WashPackage)</p>
+                            }
+                            @if (selectedVehicle.AddOns?.Any() == true)
+                            {
+                                <p class="mb-1"><strong>Add-ons:</strong></p>
+                                <ul class="mb-1">
+                                    @foreach (var addon in selectedVehicle.AddOns)
+                                    {
+                                        <li>@GetAddOnName(addon)</li>
+                                    }
+                                </ul>
+                            }
+                            @if (selectedVehicle.DirtyCharge > 0)
+                            {
+                                <p class="mb-1"><strong>Dirty Car Charge:</strong> +£@selectedVehicle.DirtyCharge.ToString("F2")</p>
+                            }
+                            <p class="mb-0"><strong>Total Amount:</strong> <span class="badge bg-success text-white">£@selectedVehicle.Amount.ToString("F2")</span></p>
                         </div>
                     </div>
                 }
@@ -292,6 +313,10 @@ else
         public string? Description { get; set; }
         public string? IconUrl { get; set; }
         public decimal Amount { get; set; }
+        public string VanSize { get; set; } = "";
+        public string WashPackage { get; set; } = "";
+        public List<string> AddOns { get; set; } = new();
+        public decimal DirtyCharge { get; set; } = 0m;
     }
 
     bool isPaymentSelected = false;
@@ -604,6 +629,41 @@ else
         }
     }
 
+    private string GetWashPackageName(string packageId)
+    {
+        return packageId switch
+        {
+            "wash_wax_dry" => "Wash, Wax & Dry",
+            "wash_vacuum" => "Wash & Vacuum",
+            "mini_valet" => "Mini Valet",
+            "super_tango_valet" => "Super Tango Valet",
+            "super_ceramic_valet" => "Super Ceramic Valet",
+            "super_glaze_valet" => "Super Glaze Valet",
+            "full_valet" => "Full Valet",
+            "tango_full_valet" => "Tango Full Valet",
+            "connoisseurs_wax" => "Connoisseurs Wax (Machine Polish)",
+            _ => packageId
+        };
+    }
+
+    private string GetAddOnName(string addonId)
+    {
+        return addonId switch
+        {
+            "tyre_shine" => "Tyre Shine",
+            "tango_wax" => "Tango Wax (Spray)",
+            "ceramic_spray" => "Ceramic (Spray)",
+            "glaze_spray" => "Glaze (Spray)",
+            "fallout_removal" => "Fall Out Removal (Metal Particles)",
+            "windows" => "Windows",
+            "dashboard" => "Dashboard (All Plastics)",
+            "vacuum" => "Vacuum",
+            "screen_wash_topup" => "Screen Wash Top Up",
+            "screen_wash_5l" => "Screen Wash 5 Litre",
+            _ => addonId
+        };
+    }
+
     private void UpdateInvoiceData()
     {
         decimal baseAmount = originalAmount > 0 ? originalAmount : carWashCharges;
@@ -612,15 +672,62 @@ else
         // Clear existing service items
         invoiceDto.ServiceItems.Clear();
         
-        // Add the main service item - always show the original price
-        string serviceDescription = selectedVehicle != null ? $"{selectedVehicle.Title} Wash Service" : "Car Wash Service";
-        invoiceDto.ServiceItems.Add(new ServiceItem 
-        { 
-            Description = serviceDescription, 
-            Quantity = 1, 
-            UnitPrice = baseAmount, 
-            TotalPrice = baseAmount 
-        });
+        // Add detailed service items if we have selected vehicle with services
+        if (selectedVehicle != null && !string.IsNullOrEmpty(selectedVehicle.WashPackage))
+        {
+            // Add main wash package
+            string washPackageName = GetWashPackageName(selectedVehicle.WashPackage);
+            string vehicleDescription = !string.IsNullOrEmpty(selectedVehicle.VanSize) 
+                ? $"{selectedVehicle.Title} ({selectedVehicle.VanSize}) - {washPackageName}"
+                : $"{selectedVehicle.Title} - {washPackageName}";
+            
+            invoiceDto.ServiceItems.Add(new ServiceItem 
+            { 
+                Description = vehicleDescription, 
+                Quantity = 1, 
+                UnitPrice = baseAmount, 
+                TotalPrice = baseAmount 
+            });
+            
+            // Add add-ons if any
+            if (selectedVehicle.AddOns?.Any() == true)
+            {
+                foreach (var addon in selectedVehicle.AddOns)
+                {
+                    invoiceDto.ServiceItems.Add(new ServiceItem
+                    {
+                        Description = GetAddOnName(addon),
+                        Quantity = 1,
+                        UnitPrice = 0m, // Add-on prices are already included in the total
+                        TotalPrice = 0m
+                    });
+                }
+            }
+            
+            // Add dirty car charge if applicable
+            if (selectedVehicle.DirtyCharge > 0)
+            {
+                invoiceDto.ServiceItems.Add(new ServiceItem
+                {
+                    Description = "Dirty Car Charge",
+                    Quantity = 1,
+                    UnitPrice = 0m, // Dirty charge is already included in the total
+                    TotalPrice = 0m
+                });
+            }
+        }
+        else
+        {
+            // Fallback for simple service
+            string serviceDescription = selectedVehicle != null ? $"{selectedVehicle.Title} Wash Service" : "Car Wash Service";
+            invoiceDto.ServiceItems.Add(new ServiceItem 
+            { 
+                Description = serviceDescription, 
+                Quantity = 1, 
+                UnitPrice = baseAmount, 
+                TotalPrice = baseAmount 
+            });
+        }
         
         // Add loyalty discount line if applicable
         if (redemptionType != LoyaltyRedemptionType.None)

@@ -41,25 +41,164 @@
     }
 </div>
 
+<!-- Custom Modal -->
+@if (showPopup)
+{
+    <div class="modal-overlay" @onclick="() => showPopup = false">
+        <div class="modal-container" @onclick:stopPropagation="true">
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <div class="header-content">
+                    @if (!string.IsNullOrWhiteSpace(selectedVehicle.IconUrl))
+                    {
+                        <img src="@selectedVehicle.IconUrl" alt="" class="modal-icon" />
+                    }
+                    <div class="header-text">
+                        <h4 class="modal-title">@selectedVehicle.Title Service</h4>
+                        <small class="modal-subtitle">Customize your wash experience</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" @onclick="() => showPopup = false" aria-label="Close">
+                    <span>&times;</span>
+                </button>
+            </div>
 
-<Popup IsOpen="showPopup"
-       IsOpenChanged="val => showPopup = val"
-       Title="@selectedVehicle.Title">
+            <!-- Modal Body -->
+            <div class="modal-body">
+                <!-- Vehicle Size Selection for Van -->
+                @if (selectedVehicle.Title == "Van")
+                {
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h5><span class="section-icon">🚚</span>Van Size</h5>
+                        </div>
+                        <div class="size-selector">
+                            <div class="size-option @(selectedVanSize == "Small" ? "selected" : "")" @onclick="@(() => { selectedVanSize = "Small"; StateHasChanged(); })">
+                                <div class="size-icon">🚐</div>
+                                <div class="size-label">Small</div>
+                                <div class="size-price">£8-£12</div>
+                            </div>
+                            <div class="size-option @(selectedVanSize == "Medium" ? "selected" : "")" @onclick="@(() => { selectedVanSize = "Medium"; StateHasChanged(); })">
+                                <div class="size-icon">🚚</div>
+                                <div class="size-label">Medium</div>
+                                <div class="size-price">£9-£13</div>
+                            </div>
+                            <div class="size-option @(selectedVanSize == "Large" ? "selected" : "")" @onclick="@(() => { selectedVanSize = "Large"; StateHasChanged(); })">
+                                <div class="size-icon">🚛</div>
+                                <div class="size-label">Large</div>
+                                <div class="size-price">£10-£14</div>
+                            </div>
+                        </div>
+                    </div>
+                }
 
-    <ChildContent>
-        <pre class="desc-text">@selectedVehicle.Description</pre>
-    </ChildContent>
+                <!-- Wash Packages -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h5><span class="section-icon">💧</span>Wash Packages</h5>
+                        <span class="required-badge">Required</span>
+                    </div>
+                    <div class="packages-grid">
+                        @foreach (var package in GetWashPackages())
+                        {
+                            <div class="package-card @(selectedWashPackage == package.Id ? "selected" : "")" @onclick="() => { selectedWashPackage = package.Id; StateHasChanged(); }">
+                                <div class="package-header">
+                                    <div class="package-name">@package.Name</div>
+                                    <div class="package-price">£@package.GetPrice(selectedVehicle.Title, selectedVanSize).ToString("F2")</div>
+                                </div>
+                                <div class="package-description">
+                                    @GetPackageDescription(package.Id)
+                                </div>
+                                <div class="package-check">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
 
-    <FooterContent>
-        <button class="btn" @onclick="() => showPopup = false">Cancel</button>
-        <button class="btn primary" @onclick="Confirm">Confirm</button>
-    </FooterContent>
-</Popup>
+                <!-- Add-on Services -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h5><span class="section-icon">➕</span>Add-on Services</h5>
+                        <span class="optional-badge">Optional</span>
+                    </div>
+                    <div class="addons-grid">
+                        @foreach (var addon in GetAddOnServices())
+                        {
+                            <div class="addon-card @(selectedAddOns.Contains(addon.Id) ? "selected" : "")" @onclick="() => ToggleAddOn(addon.Id)">
+                                <div class="addon-icon">
+                                    @GetAddOnIcon(addon.Id)
+                                </div>
+                                <div class="addon-info">
+                                    <div class="addon-name">@addon.Name</div>
+                                    <div class="addon-price">£@addon.Price.ToString("F2")</div>
+                                </div>
+                                <div class="addon-check">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Dirty Car Charges -->
+                <div class="section-card">
+                    <div class="section-header">
+                        <h5><span class="section-icon">⚠️</span>Dirty Car Charges</h5>
+                        <span class="optional-badge">Optional</span>
+                    </div>
+                    <div class="dirty-charges">
+                        <div class="dirty-option @(dirtyCharge == 0 ? "selected" : "")" @onclick="() => { dirtyCharge = 0; StateHasChanged(); }">
+                            <div class="dirty-icon">✨</div>
+                            <div class="dirty-label">Clean Vehicle</div>
+                            <div class="dirty-price">No Extra Charge</div>
+                        </div>
+                        <div class="dirty-option @(dirtyCharge == 5 ? "selected" : "")" @onclick="() => { dirtyCharge = 5; StateHasChanged(); }">
+                            <div class="dirty-icon">🧽</div>
+                            <div class="dirty-label">Dirty Vehicle</div>
+                            <div class="dirty-price">+£5.00</div>
+                        </div>
+                        <div class="dirty-option @(dirtyCharge == 10 ? "selected" : "")" @onclick="() => { dirtyCharge = 10; StateHasChanged(); }">
+                            <div class="dirty-icon">🚗💨</div>
+                            <div class="dirty-label">Very Dirty Vehicle</div>
+                            <div class="dirty-price">+£10.00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="modal-footer">
+                <div class="total-summary">
+                    <div class="total-label">Total Amount</div>
+                    <div class="total-amount">£@CalculateTotal().ToString("F2")</div>
+                </div>
+                <div class="footer-buttons">
+                    <button type="button" class="btn-cancel" @onclick="() => showPopup = false">
+                        <span class="btn-icon">❌</span>Cancel
+                    </button>
+                    <button type="button" class="btn-confirm" @onclick="Confirm" disabled="@(string.IsNullOrEmpty(selectedWashPackage))">
+                        <span class="btn-icon">✅</span>Confirm Order
+                        <span class="confirm-price">£@CalculateTotal().ToString("F2")</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     [Inject] NavigationManager NavigationManager { get; set; } 
     private bool showPopup = false;
     private VehicleType selectedVehicle = new();
+    
+    // Service selection state
+    private string selectedVanSize = "Small";
+    private string selectedWashPackage = "";
+    private HashSet<string> selectedAddOns = new();
+    private decimal dirtyCharge = 0m;
+
     public class VehicleType
     {
         public string Title { get; set; } = "";
@@ -67,6 +206,45 @@
         public string? Description { get; set; }
         public string? IconUrl { get; set; }
         public decimal Amount { get; set; }
+        public string VanSize { get; set; } = "";
+        public string WashPackage { get; set; } = "";
+        public List<string> AddOns { get; set; } = new();
+        public decimal DirtyCharge { get; set; } = 0m;
+    }
+
+    public class WashPackage
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public decimal CarPrice { get; set; }
+        public decimal VanSmallPrice { get; set; }
+        public decimal VanMediumPrice { get; set; }
+        public decimal VanLargePrice { get; set; }
+        public decimal TaxiPrice { get; set; }
+        
+        public decimal GetPrice(string vehicleType, string vanSize = "")
+        {
+            return vehicleType switch
+            {
+                "Car" => CarPrice,
+                "Van" => vanSize switch
+                {
+                    "Small" => VanSmallPrice,
+                    "Medium" => VanMediumPrice,
+                    "Large" => VanLargePrice,
+                    _ => VanSmallPrice
+                },
+                "Taxi" => TaxiPrice,
+                _ => 0m
+            };
+        }
+    }
+
+    public class AddOnService
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+        public decimal Price { get; set; }
     }
 
     [Parameter, NotNull]
@@ -75,90 +253,152 @@
         new VehicleType()
         {
             Title = "Car",
-            Subtitle = "Wash, Wheels & Blow Dry £8",
+            Subtitle = "Select wash package and add-ons",
             IconUrl = "img/car.png",
-            Amount = 8.00m,
-            Description = @"Wash, Wheels & Blow Dry £8
-
-Extra Service Singular or Multiple
-No Extra Service On £0
-Tyre Shine £2
-Tango Spray Wax £5
-Ceramic Spray Protection £8
-Windows £4
-Dashboard £5
-Vacuum £5
-Half tar Removal £10
-Full Tar removal £20
-
-Extra Charge Dirty Car £5
-Extra Charge Dirty Car £10
-Extra Charge Dirty Car £20
-
-Scratch Removal £15 (please include option to purchase multiple scratch removal as there can be more than one Scratch)
-Seat Wash £5 (please include option to purchase multiple Seat Wash as there can be more than one Seat wash)"
+            Amount = 0m
         },
         new VehicleType()
         {
             Title = "Van",
-            Subtitle = "Wash, Wheels & Blow Dry £8 - £12",
+            Subtitle = "Select size, wash package and add-ons",
             IconUrl = "img/truck.png",
-            Amount = 10.00m, // Using middle value for Van
-            Description = @"Small Wash, Wheels & Blow Dry £8
-
-Medium Wash, Wheels & Blow Dry £9
-Large Wash, Wheels & Blow Dry £12
-
-Extra Service Singular or Multiple
-No Extra Service On £0
-Back Interior Wash £6
-Tyre Shine £2
-Tango Spray Wax £5
-Ceramic Spray Protection £8
-Windows £4
-Dashboard £5
-Vacuum £5
-Half Tar Removal £15
-Full Tar removal £30
-
-Extra Charge Dirty Car £5
-Extra Charge Dirty Car £10
-Extra Charge Dirty Car £20
-
-Scratch Removal £15 (please include option to purchase multiple scratch removal as there can be more than one Scratch)
-Seat Wash £5 (please include option to purchase multiple Seat Wash as there can be more than one Seat wash)"
+            Amount = 0m
         },
         new VehicleType()
         {
             Title = "Taxi",
-            Subtitle = "Wash, Wheels & Blow Dry £7",
+            Subtitle = "Select wash package and add-ons",
             IconUrl = "img/taxi.png",
-            Amount = 7.00m,
-            Description = @"Wash, Wheels & Blow Dry £7
-
-Extra Service Singular or Multiple
-No Extra Service On £0
-Tyre Shine £2
-Tango Spray Wax £5
-Ceramic Spray Protection £8
-Windows £4
-Dashboard £5
-Vacuum £5
-Half tar Removal £7
-Full Tar removal £15
-
-Extra Charge Dirty Car £5
-Extra Charge Dirty Car £10
-Extra Charge Dirty Car £20
-
-Scratch Removal £15 (please include option to purchase multiple scratch removal as there can be more than one Scratch)
-Seat Wash £5 (please include option to purchase multiple Seat Wash as there can be more than one Seat wash)"
+            Amount = 0m
         },
     };
 
+    private List<WashPackage> GetWashPackages()
+    {
+        return new List<WashPackage>
+        {
+            new WashPackage { Id = "wash_wax_dry", Name = "Wash, Wax & Dry", CarPrice = 8m, VanSmallPrice = 8m, VanMediumPrice = 9m, VanLargePrice = 10m, TaxiPrice = 7m },
+            new WashPackage { Id = "wash_vacuum", Name = "Wash & Vacuum", CarPrice = 11m, VanSmallPrice = 12m, VanMediumPrice = 13m, VanLargePrice = 14m, TaxiPrice = 11m },
+            new WashPackage { Id = "mini_valet", Name = "Mini Valet", CarPrice = 19m, VanSmallPrice = 26m, VanMediumPrice = 26m, VanLargePrice = 26m, TaxiPrice = 16m },
+            new WashPackage { Id = "super_tango_valet", Name = "Super Tango Valet", CarPrice = 24m, VanSmallPrice = 31m, VanMediumPrice = 31m, VanLargePrice = 31m, TaxiPrice = 21m },
+            new WashPackage { Id = "super_ceramic_valet", Name = "Super Ceramic Valet", CarPrice = 27m, VanSmallPrice = 34m, VanMediumPrice = 34m, VanLargePrice = 34m, TaxiPrice = 27m },
+            new WashPackage { Id = "super_glaze_valet", Name = "Super Glaze Valet", CarPrice = 39m, VanSmallPrice = 45m, VanMediumPrice = 45m, VanLargePrice = 45m, TaxiPrice = 39m },
+            new WashPackage { Id = "full_valet", Name = "Full Valet", CarPrice = 50m, VanSmallPrice = 50m, VanMediumPrice = 50m, VanLargePrice = 50m, TaxiPrice = 50m },
+            new WashPackage { Id = "tango_full_valet", Name = "Tango Full Valet", CarPrice = 60m, VanSmallPrice = 60m, VanMediumPrice = 60m, VanLargePrice = 60m, TaxiPrice = 60m },
+            new WashPackage { Id = "connoisseurs_wax", Name = "Connoisseurs Wax (Machine Polish)", CarPrice = 70m, VanSmallPrice = 110m, VanMediumPrice = 120m, VanLargePrice = 130m, TaxiPrice = 70m }
+        };
+    }
+
+    private List<AddOnService> GetAddOnServices()
+    {
+        return new List<AddOnService>
+        {
+            new AddOnService { Id = "tyre_shine", Name = "Tyre Shine", Price = 2m },
+            new AddOnService { Id = "tango_wax", Name = "Tango Wax (Spray)", Price = 5m },
+            new AddOnService { Id = "ceramic_spray", Name = "Ceramic (Spray)", Price = 7m },
+            new AddOnService { Id = "glaze_spray", Name = "Glaze (Spray)", Price = 9m },
+            new AddOnService { Id = "fallout_removal", Name = "Fall Out Removal (Metal Particles)", Price = 11m },
+            new AddOnService { Id = "windows", Name = "Windows", Price = 4m },
+            new AddOnService { Id = "dashboard", Name = "Dashboard (All Plastics)", Price = 5m },
+            new AddOnService { Id = "vacuum", Name = "Vacuum", Price = 5m },
+            new AddOnService { Id = "screen_wash_topup", Name = "Screen Wash Top Up", Price = 3m },
+            new AddOnService { Id = "screen_wash_5l", Name = "Screen Wash 5 Litre", Price = 5m }
+        };
+    }
+
+    private decimal CalculateTotal()
+    {
+        if (string.IsNullOrEmpty(selectedWashPackage))
+            return 0m;
+
+        var packages = GetWashPackages();
+        var addOns = GetAddOnServices();
+        
+        var selectedPackage = packages.FirstOrDefault(p => p.Id == selectedWashPackage);
+        if (selectedPackage == null)
+            return 0m;
+
+        decimal total = selectedPackage.GetPrice(selectedVehicle.Title, selectedVanSize);
+        
+        // Add selected add-ons
+        foreach (var addonId in selectedAddOns)
+        {
+            var addon = addOns.FirstOrDefault(a => a.Id == addonId);
+            if (addon != null)
+            {
+                total += addon.Price;
+            }
+        }
+        
+        // Add dirty car charge
+        total += dirtyCharge;
+        
+        return total;
+    }
+
+    private void ToggleAddOn(string addonId)
+    {
+        if (selectedAddOns.Contains(addonId))
+        {
+            selectedAddOns.Remove(addonId);
+        }
+        else
+        {
+            selectedAddOns.Add(addonId);
+        }
+        StateHasChanged();
+    }
+
+    private string GetPackageDescription(string packageId)
+    {
+        return packageId switch
+        {
+            "wash_wax_dry" => "Basic wash with wax protection and blow dry",
+            "wash_vacuum" => "Complete wash with interior vacuum cleaning",
+            "mini_valet" => "Comprehensive cleaning inside and out",
+            "super_tango_valet" => "Premium valet with Tango wax treatment",
+            "super_ceramic_valet" => "Luxury valet with ceramic coating",
+            "super_glaze_valet" => "Ultimate valet with glaze protection",
+            "full_valet" => "Complete professional detailing service",
+            "tango_full_valet" => "Full valet with premium Tango treatment",
+            "connoisseurs_wax" => "Professional machine polish and wax",
+            _ => "Professional car wash service"
+        };
+    }
+
+    private string GetAddOnIcon(string addonId)
+    {
+        return addonId switch
+        {
+            "tyre_shine" => "✨",
+            "tango_wax" => "🫧",
+            "ceramic_spray" => "💎",
+            "glaze_spray" => "🌟",
+            "fallout_removal" => "🧲",
+            "windows" => "🪟",
+            "dashboard" => "📊",
+            "vacuum" => "🧹",
+            "screen_wash_topup" => "💧",
+            "screen_wash_5l" => "🪣",
+            _ => "➕"
+        };
+    }
+
     private void Confirm()
     {
-        // Logic to handle confirmation
+        if (string.IsNullOrEmpty(selectedWashPackage))
+        {
+            // Show error message or prevent confirmation
+            return;
+        }
+
+        // Update selected vehicle with all selections
+        selectedVehicle.VanSize = selectedVanSize;
+        selectedVehicle.WashPackage = selectedWashPackage;
+        selectedVehicle.AddOns = selectedAddOns.ToList();
+        selectedVehicle.DirtyCharge = dirtyCharge;
+        selectedVehicle.Amount = CalculateTotal();
+
         showPopup = false;
         
         // Serialize the selected vehicle data and pass it to the payment page
@@ -171,5 +411,11 @@ Seat Wash £5 (please include option to purchase multiple Seat Wash as there can
     {
         showPopup = true;
         selectedVehicle = vehicle;
+        
+        // Reset selections when selecting a new vehicle
+        selectedVanSize = "Small";
+        selectedWashPackage = "";
+        selectedAddOns.Clear();
+        dirtyCharge = 0m;
     }
 }
