@@ -4,6 +4,7 @@ using CarWashApp.Components;
 using CarWashApp.Repositories;
 using CarWashApp.Services;
 using CarWashApp.Services.HttpClientServices;
+using CarWashApp.Services.Scanner;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Net.Security;
@@ -20,6 +21,7 @@ builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped(typeof(InvoiceService));
+builder.Services.AddScoped<ScannerService>();
 builder.Services.AddBlazoredToast();
 
 builder.Services.AddTransient<TokenHandler>();

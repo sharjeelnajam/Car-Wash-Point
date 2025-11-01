@@ -1,0 +1,57 @@
+﻿@page "/scanner-test"
+@using CarWashApp.Services.Scanner
+
+<h3>Scanner Connectivity Test</h3>
+
+<button class="btn btn-primary" @onclick="TestScanner">Test Scanner</button>
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="alert @(IsSuccess ? "alert-success" : "alert-danger") mt-3">
+        @Message
+    </div>
+}
+
+@code {
+    [Inject] ScannerService ScannerService { get; set; }
+
+    private string? Message;
+    private bool IsSuccess;
+
+    
+    private async Task TestScanner()
+    {
+        try
+        {
+            bool result = ScannerService.IsScannerConnected();
+
+            IsSuccess = result;
+            Message = result
+                ? "✅ Scanner is connected!"
+                : "❌ Scanner not found.";
+
+            Log($"Result: {result}");
+        }
+        catch (Exception ex)
+        {
+            IsSuccess = false;
+            Message = "⚠️ Error checking scanner. Check logs.";
+
+            Log("Exception: " + ex);
+        }
+    }
+
+    private void Log(string text)
+    {
+        try
+        {
+            string logDir = Path.Combine(Directory.GetCurrentDirectory(), "Logs");
+            Directory.CreateDirectory(logDir);
+
+            string logPath = Path.Combine(logDir, "scanner-test.log");
+            File.AppendAllText(logPath,
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} | {text}{Environment.NewLine}");
+        }
+        catch { /* ignore logging errors */ }
+    }
+}
