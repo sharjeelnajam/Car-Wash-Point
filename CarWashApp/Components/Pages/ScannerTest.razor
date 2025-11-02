@@ -18,7 +18,7 @@
     private string? Message;
     private bool IsSuccess;
 
-    
+
     private async Task TestScanner()
     {
         try
@@ -36,7 +36,7 @@
         {
             IsSuccess = false;
             Message = "⚠️ Error checking scanner. Check logs.";
-
+            throw;
             Log("Exception: " + ex);
         }
     }
@@ -45,13 +45,17 @@
     {
         try
         {
-            string logDir = Path.Combine(Directory.GetCurrentDirectory(), "Logs");
+            string logDir = Path.Combine(AppContext.BaseDirectory, "Logs");
             Directory.CreateDirectory(logDir);
 
             string logPath = Path.Combine(logDir, "scanner-test.log");
             File.AppendAllText(logPath,
                 $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} | {text}{Environment.NewLine}");
         }
-        catch { /* ignore logging errors */ }
+        catch (Exception ex)
+        {
+            throw;// You may want to log the exception to Event Viewer
+        }
     }
+
 }

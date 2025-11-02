@@ -13,7 +13,7 @@ namespace CarWashApp.Services.Scanner
             }
             catch
             {
-                return false;
+                throw;
             }
         }
 

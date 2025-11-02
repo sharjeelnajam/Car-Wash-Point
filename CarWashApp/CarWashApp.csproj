@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>AnyCPU;x86</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,42 +20,46 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="lib\Scanner\BarcodeDll.dll">
+    <None Update="BarcodeDll.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\DevCapture.dll">
+    <None Update="DevCapture.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\libgcc_s_dw2-1.dll">
+    <None Update="libgcc_s_dw2-1.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\libiconv-2.dll">
+    <None Update="libiconv-2.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\libzbar-0.dll">
+    <None Update="libzbar-0.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\msvcp120.dll">
+    <None Update="msvcp120.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\msvcr120.dll">
+    <None Update="msvcr120.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\pdflib.dll">
+    <None Update="pdflib.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\ReadBarCode.dll">
+    <None Update="ReadBarCode.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\sdtapi.dll">
+    <None Update="sdtapi.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\wavdest.ax">
+    <None Update="wavdest.ax">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="lib\Scanner\WltRS.dll">
+    <None Update="WltRS.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="lib\Scanner\" />
   </ItemGroup>
 
 </Project>
