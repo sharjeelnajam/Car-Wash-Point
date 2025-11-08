@@ -8,6 +8,7 @@
 @using CarWashApp.Services.HttpClientServices
 @using System.Text.Json
 @using System.Text
+@using CarWashApp.Services.Scanner
 @using Microsoft.AspNetCore.WebUtilities
 @using CarWashApp.Components.Shared
 
@@ -87,7 +88,36 @@
         </div>
     </div>
 
-
+    @if (!string.IsNullOrEmpty(ImageDataUri))
+    {
+        <div class="container mt-4">
+            <div class="row justify-content-center">
+                <div class="col-md-8 col-lg-6">
+                    <div class="card shadow-lg">
+                        <div class="card-header bg-info text-white text-center">
+                            <h4 class="mb-0"><i class="bi bi-image me-2"></i>Captured Invoice Image</h4>
+                        </div>
+                        <div class="card-body text-center">
+                            <div class="mb-3">
+                                <img src="@ImageDataUri"
+                                     alt="Captured Invoice"
+                                     class="img-fluid"
+                                     style="max-width: 100%; max-height: 600px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
+                            </div>
+                            @if (!string.IsNullOrEmpty(LastCapturedImage))
+                            {
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-file-image me-1"></i>Filename: @LastCapturedImage
+                                    </small>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 }
 else
 {
@@ -254,9 +284,7 @@ else
         </div>
     </div>
 }
-
-<!-- Invoice PDF Popup -->
-<Popup IsOpen="@showInvoicePopup" 
+<Popup IsOpen="@showInvoicePopup"
        IsOpenChanged="@((bool isOpen) => showInvoicePopup = isOpen)"
        Title="Invoice - Payment Complete"
        CloseOnBackdropClick="true">
@@ -267,19 +295,19 @@ else
                 <p class="lead">Your payment has been processed successfully!</p>
                 <p class="text-muted">Invoice #@invoiceDto.InvoiceNumber</p>
             </div>
-            
+
             <div class="d-flex flex-column gap-3 align-items-center">
-                <button @onclick="ViewPdfInBrowser" 
+                <button @onclick="ViewPdfInBrowser"
                         class="btn btn-primary btn-lg w-75">
                     <i class="bi bi-eye me-2"></i>View Invoice
                 </button>
-                
-                <button @onclick="DownloadPdfFromPopup" 
+
+                <button @onclick="DownloadPdfFromPopup"
                         class="btn btn-success btn-lg w-75">
                     <i class="bi bi-download me-2"></i>Download PDF
                 </button>
-                
-                <button @onclick="@(() => showInvoicePopup = false)" 
+
+                <button @onclick="@(() => showInvoicePopup = false)"
                         class="btn btn-secondary w-75">
                     <i class="bi bi-x-circle me-2"></i>Close
                 </button>
@@ -329,7 +357,7 @@ else
     private bool useLoyaltyRedemption = false;
     private LoyaltyRedemptionType redemptionType = LoyaltyRedemptionType.None;
     private decimal originalAmount = 0m;
-    
+
     decimal CarWashCharges
     {
         get => carWashCharges;
@@ -343,13 +371,13 @@ else
             {
                 value = Math.Truncate(value * 100) / 100;
                 carWashCharges = value;
-                
+
                 // Store the user-entered amount as original amount if it's valid
                 if (value >= 5)
                 {
                     originalAmount = value;
                 }
-                
+
                 // Force UI refresh to update loyalty calculations
                 StateHasChanged();
             }
@@ -383,13 +411,13 @@ else
     Task PaymentMethodSelected(PaymentMethod method)
     {
         selectedPaymentMethod = method;
-        
+
         // Store original amount when payment method is first selected
         if (originalAmount == 0)
         {
             originalAmount = carWashCharges;
         }
-        
+
         isPaymentSelected = true;
         StateHasChanged(); // Trigger UI refresh to show loyalty options
         return Task.CompletedTask;
@@ -404,7 +432,8 @@ else
             // Handle card payments differently from cash payments
             if (selectedPaymentMethod == PaymentMethod.Card)
             {
-                await ProcessCardPayment();
+                // await ProcessCardPayment();
+                await CaptureImage();
                 return;
             }
 
@@ -426,7 +455,7 @@ else
                     LoyaltyRedemptionType.HalfPrice => $"Paid {carWashCharges:C} using {selectedPaymentMethod.ToString()} for {GetCarInfo()} (redeemed 5 loyalty points - was {originalAmount:C})",
                     _ => $"Paid {carWashCharges:C} using {selectedPaymentMethod.ToString()} for {GetCarInfo()} (earned 1 loyalty point)"
                 };
-                
+
                 var dto = new TransactionDto
                 {
                     Amount = carWashCharges,
@@ -453,13 +482,13 @@ else
                                     break;
                                 case EventType.PaymentComplete:
                                     ToastService.ShowSuccess("Payment completed successfully!");
-                                    
+
                                     // Handle loyalty points logic
                                     await HandleLoyaltyPoints();
-                                    
+
                                     // Update invoice with actual payment data
                                     UpdateInvoiceData();
-                                    
+
                                     // Generate PDF and show popup
                                     pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
                                     showInvoicePopup = true;
@@ -502,7 +531,69 @@ else
             isProcessingPayment = false;
         }
     }
+    [Inject] IConfiguration Configuration { get; set; }
+    [Inject] ScannerService ScannerService { get; set; }
+    async Task CaptureImage()
+    {
+        var invoiceFolderPath = Configuration["InvoicePath"];
 
+        if (string.IsNullOrWhiteSpace(invoiceFolderPath))
+            throw new Exception("Invoice folder path is not configured.");
+
+        // Ensure folder exists
+        if (!Directory.Exists(invoiceFolderPath))
+            Directory.CreateDirectory(invoiceFolderPath);
+
+        // Create invoice file name
+        string invoiceFileName = $"INV-{DateTime.Now:yyyyMMddHHmmss}.png";
+
+        // Full save path
+        string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
+        ScannerService.OpenScanner();
+        string? output = ScannerService.ScanInvoice(invoicePath);
+        ScannerService.CloseScanner();
+
+        if (output != null)
+        {
+            // Store the filename
+            LastCapturedImage = invoiceFileName;
+
+            // Load and display the image directly
+            LoadImageFromPath(invoicePath);
+
+            ToastService.ShowSuccess("Image Captured ");
+        }
+        else
+        {
+            ToastService.ShowError("Capture Failed");
+        }
+    }
+    private string? ImageDataUri;
+    private string? LastCapturedImage;
+
+    private void LoadImageFromPath(string filePath)
+    {
+        try
+        {
+            if (File.Exists(filePath))
+            {
+                byte[] imageBytes = File.ReadAllBytes(filePath);
+                string base64String = Convert.ToBase64String(imageBytes);
+                ImageDataUri = $"data:image/png;base64,{base64String}";
+                StateHasChanged();
+            }
+            else
+            {
+                ImageDataUri = null;
+                ToastService.ShowError("File not exits");
+            }
+        }
+        catch (Exception ex)
+        {
+            ImageDataUri = null;
+            ToastService.ShowError($"Error loading image: {ex.Message}");
+        }
+    }
     async Task ProcessCardPayment()
     {
         try

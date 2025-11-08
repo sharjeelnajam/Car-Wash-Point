@@ -20,6 +20,26 @@
     </div>
 }
 
+@if (!string.IsNullOrEmpty(ImageDataUri))
+{
+    <div class="mt-4">
+        <h4>Last Captured Image</h4>
+        <div class="card">
+            <div class="card-body">
+                <img src="@ImageDataUri"
+                     alt="Captured Invoice"
+                     class="img-fluid"
+                     style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;" />
+                @if (!string.IsNullOrEmpty(LastCapturedImage))
+                {
+                    <div class="mt-2">
+                        <small class="text-muted">Filename: @LastCapturedImage</small>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
 @code {
     private string? Message;
     private bool IsSuccess;
@@ -104,6 +124,21 @@
 
             string? output = ScannerService.ScanInvoice(invoicePath);
 
+            if (output != null)
+            {
+                // Store the filename
+                LastCapturedImage = invoiceFileName;
+
+                // Load and display the image directly
+                LoadImageFromPath(invoicePath);
+
+                SetResult(true, $"Captured ✅ => {output}");
+            }
+            else
+            {
+                SetResult(false, "Capture Failed ❌");
+            }
+
             SetResult(output != null,
                 output != null ? $"Captured ✅ => {output}" : "Capture Failed ❌");
         }
@@ -112,4 +147,30 @@
             SetResult(false, "Error: " + ex);
         }
     }
+    private string? ImageDataUri;
+    private string? LastCapturedImage;
+
+    private void LoadImageFromPath(string filePath)
+    {
+        try
+        {
+            if (File.Exists(filePath))
+            {
+                byte[] imageBytes = File.ReadAllBytes(filePath);
+                string base64String = Convert.ToBase64String(imageBytes);
+                ImageDataUri = $"data:image/png;base64,{base64String}";
+                StateHasChanged();
+            }
+            else
+            {
+                ImageDataUri = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            ImageDataUri = null;
+            SetResult(false, $"Error loading image: {ex.Message}");
+        }
+    }
+
 }

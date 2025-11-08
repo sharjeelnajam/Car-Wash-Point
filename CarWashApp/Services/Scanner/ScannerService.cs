@@ -34,7 +34,7 @@ namespace CarWashApp.Services.Scanner
         public bool CloseScanner()
         {
             int result = ScannerInterop.CloseDevice();
-            return result == 1;
+            return result == 0;
         }
 
         public string ScanInvoice(string savePath)
