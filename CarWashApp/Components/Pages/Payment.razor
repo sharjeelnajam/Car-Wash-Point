@@ -8,8 +8,11 @@
 @using CarWashApp.Services.HttpClientServices
 @using System.Text.Json
 @using System.Text
+@using CarWashApp.Services.Log
+@using CarWashApp.Services.Scanner
 @using Microsoft.AspNetCore.WebUtilities
 @using CarWashApp.Components.Shared
+@using Microsoft.Extensions.Configuration
 
 <button class="btn btn-lg btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/"))"> Home</button>
 
@@ -297,6 +300,68 @@ else
     </div>
 </Popup>
 
+<!-- Scanned Image Preview Popup -->
+<Popup IsOpen="@showImagePreview" 
+       IsOpenChanged="@((bool isOpen) => showImagePreview = isOpen)"
+       Title="Scan Invoice Preview"
+       CloseOnBackdropClick="false">
+    <div class="text-center">
+        @if (isScanning)
+        {
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Scanning...</span>
+                </div>
+                <p class="mt-2">Scanning invoice...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(scannedImageBase64))
+        {
+            <div class="mb-3">
+                <p class="lead">Please review the scanned invoice:</p>
+                <div class="mb-3" style="max-height: 500px; overflow: auto; border: 2px solid #ddd; border-radius: 8px; padding: 10px; background: #f8f9fa;">
+                    <img src="data:image/png;base64,@scannedImageBase64" 
+                         alt="Scanned Invoice" 
+                         style="max-width: 100%; height: auto; border-radius: 4px;" />
+                </div>
+                @if (!string.IsNullOrEmpty(scannedImagePath))
+                {
+                    <p class="text-muted small">Saved to: @scannedImagePath</p>
+                }
+            </div>
+            
+            <div class="d-flex flex-column gap-3 align-items-center">
+                <button @onclick="ConfirmScannedImage" 
+                        class="btn btn-success btn-lg w-75"
+                        disabled="@isProcessingPayment">
+                    <i class="bi bi-check-circle me-2"></i>Confirm & Process Payment
+                </button>
+                
+                <button @onclick="RetryScan" 
+                        class="btn btn-warning btn-lg w-75"
+                        disabled="@isScanning">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Retry Scan
+                </button>
+                
+                <button @onclick="CancelImagePreview" 
+                        class="btn btn-secondary w-75">
+                    <i class="bi bi-x-circle me-2"></i>Cancel
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="text-center">
+                <p class="text-danger">Failed to scan invoice. Please try again.</p>
+                <button @onclick="RetryScan" 
+                        class="btn btn-primary">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Retry
+                </button>
+            </div>
+        }
+    </div>
+</Popup>
+
 @code {
     [Inject] IToastService ToastService { get; set; }
     [Inject] CWPClient ApiClient { get; set; }
@@ -323,12 +388,16 @@ else
     bool isProcessingPayment = false;
     bool isCancellingPayment = false;
     bool showInvoicePopup = false;
+    bool showImagePreview = false;
+    bool isScanning = false;
     private decimal carWashCharges;
     private CarDto selectedCar;
     private VehicleType selectedVehicle;
     private bool useLoyaltyRedemption = false;
     private LoyaltyRedemptionType redemptionType = LoyaltyRedemptionType.None;
     private decimal originalAmount = 0m;
+    private string? scannedImagePath;
+    private string? scannedImageBase64;
     
     decimal CarWashCharges
     {
@@ -404,7 +473,10 @@ else
             // Handle card payments differently from cash payments
             if (selectedPaymentMethod == PaymentMethod.Card)
             {
-                await ProcessCardPayment();
+                // Capture invoice image first, then process payment after confirmation
+                // Don't set isProcessingPayment here - it will be set when user confirms the image
+                isProcessingPayment = false;
+                await CaptureImage();
                 return;
             }
 
@@ -503,8 +575,165 @@ else
         }
     }
 
+    [Inject] ScannerService ScannerService { get; set; }
+    [Inject] IConfiguration configuration { get; set; }
+    
+    async Task CaptureImage()
+    {
+        isScanning = true;
+        scannedImagePath = null;
+        scannedImageBase64 = null;
+        showImagePreview = true;
+        StateHasChanged();
+        
+        try
+        {
+            if (!ScannerService.IsScannerConnected())
+            {
+                ToastService.ShowError("Scanner is not connected. Please check the scanner connection.");
+                showImagePreview = false;
+                isScanning = false;
+                return;
+            }
+
+            var isSuccess = ScannerService.OpenScanner();
+            if (!isSuccess)
+            {
+                ToastService.ShowError("Failed to open scanner");
+                showImagePreview = false;
+                isScanning = false;
+                return;
+            }
+
+            var invoiceFolderPath = configuration["InvoicePath"];
+
+            if (string.IsNullOrWhiteSpace(invoiceFolderPath))
+            {
+                throw new Exception("Invoice folder path is not configured.");
+            }
+
+            // Ensure folder exists
+            if (!Directory.Exists(invoiceFolderPath))
+            {
+                Directory.CreateDirectory(invoiceFolderPath);
+            }
+
+            // Create invoice file name
+            string invoiceFileName = $"INV-{DateTime.Now:yyyyMMddHHmmss}.png";
+
+            // Full save path
+            string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
+
+            // Call scanner service
+            var path = ScannerService.ScanInvoice(invoicePath);
+
+            // Close scanner after scanning (whether successful or not)
+            try
+            {
+                ScannerService.CloseScanner();
+            }
+            catch (Exception closeEx)
+            {
+                LogService.Log($"Error closing scanner: {closeEx.Message}");
+            }
+
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                ToastService.ShowError("Failed to scan invoice. The image file was not created.");
+                isScanning = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Store the path
+            scannedImagePath = path;
+
+            // Read the image file and convert to base64 for preview
+            try
+            {
+                byte[] imageBytes = await File.ReadAllBytesAsync(path);
+                scannedImageBase64 = Convert.ToBase64String(imageBytes);
+                ToastService.ShowSuccess("Invoice scanned successfully. Please review the image.");
+            }
+            catch (Exception ex)
+            {
+                LogService.Log($"Error reading scanned image: {ex.Message}");
+                ToastService.ShowError("Failed to load scanned image for preview.");
+            }
+        }
+        catch (Exception e)
+        {
+            LogService.Log($"Error during scanning: {e.Message}");
+            ToastService.ShowError($"Error scanning invoice: {e.Message}");
+            showImagePreview = false;
+            
+            // Ensure scanner is closed on error
+            try
+            {
+                ScannerService.CloseScanner();
+            }
+            catch { }
+        }
+        finally
+        {
+            isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    async Task RetryScan()
+    {
+        // Close the preview and scan again
+        showImagePreview = false;
+        scannedImagePath = null;
+        scannedImageBase64 = null;
+        StateHasChanged();
+        
+        // Wait a moment for UI to update
+        await Task.Delay(300);
+        
+        // Capture again
+        await CaptureImage();
+    }
+
+    async Task ConfirmScannedImage()
+    {
+        if (string.IsNullOrEmpty(scannedImagePath) || !File.Exists(scannedImagePath))
+        {
+            ToastService.ShowError("Scanned image file not found. Please retry scanning.");
+            return;
+        }
+
+        // Close the preview
+        showImagePreview = false;
+        StateHasChanged();
+
+        // Process the card payment
+        await ProcessCardPayment();
+    }
+
+    async Task CancelImagePreview()
+    {
+        // Close scanner if open
+        try
+        {
+            ScannerService.CloseScanner();
+        }
+        catch { }
+
+        // Reset state
+        showImagePreview = false;
+        scannedImagePath = null;
+        scannedImageBase64 = null;
+        isPaymentSelected = false;
+        
+        ToastService.ShowInfo("Card payment cancelled.");
+        StateHasChanged();
+    }
+
     async Task ProcessCardPayment()
     {
+        isProcessingPayment = true;
         try
         {
             ToastService.ShowInfo("Processing card payment...");
@@ -546,6 +775,10 @@ else
         {
             ToastService.ShowError($"Card payment error: {ex.Message}");
         }
+        finally
+        {
+            isProcessingPayment = false;
+        }
     }
 
     async Task CancelPayment()
@@ -556,6 +789,20 @@ else
             // Handle card payment cancellation differently
             if (selectedPaymentMethod == PaymentMethod.Card)
             {
+                // If image preview is open, close it and clean up
+                if (showImagePreview)
+                {
+                    showImagePreview = false;
+                    scannedImagePath = null;
+                    scannedImageBase64 = null;
+                    // Make sure scanner is closed
+                    try
+                    {
+                        ScannerService.CloseScanner();
+                    }
+                    catch { }
+                }
+                
                 ToastService.ShowInfo("Cancelling card payment...");
                 ToastService.ShowSuccess("Card payment cancelled successfully!");
                 isPaymentSelected = false; // Reset payment selection

@@ -1,6 +1,8 @@
 ﻿@page "/scanner-test"
 @using CarWashApp.Services.Scanner
 @using CarWashApp.Services.Log
+@using CarWashApp.Components.Shared
+@using Microsoft.Extensions.Configuration
 @inject ScannerService ScannerService
 
 <h3>Scanner Connectivity & API Test Panel</h3>
@@ -10,7 +12,17 @@
     <button class="btn btn-info me-2" @onclick="TestScannerName">Get Scanner Name</button>
     <button class="btn btn-success me-2" @onclick="TestOpenScanner">Open Scanner</button>
     <button class="btn btn-warning me-2" @onclick="TestCloseScanner">Close Scanner</button>
-    <button class="btn btn-dark me-2" @onclick="TestCapture">Capture Test</button>
+    <button class="btn btn-dark me-2" @onclick="TestCaptureWithPreview" disabled="@isScanning">
+        @if (isScanning)
+        {
+            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+            @:Scanning...
+        }
+        else
+        {
+            @:Capture with Preview
+        }
+    </button>
 </div>
 
 @if (!string.IsNullOrEmpty(Message))
@@ -20,9 +32,81 @@
     </div>
 }
 
+<!-- Scanned Image Preview Popup -->
+<Popup IsOpen="@showImagePreview" 
+       IsOpenChanged="@((bool isOpen) => showImagePreview = isOpen)"
+       Title="Scan Invoice Preview - Test Mode"
+       CloseOnBackdropClick="false">
+    <div class="text-center">
+        @if (isScanning)
+        {
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Scanning...</span>
+                </div>
+                <p class="mt-2">Scanning invoice...</p>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(scannedImageBase64))
+        {
+            <div class="mb-3">
+                <p class="lead">Preview of scanned invoice:</p>
+                <div class="mb-3" style="max-height: 500px; overflow: auto; border: 2px solid #ddd; border-radius: 8px; padding: 10px; background: #f8f9fa;">
+                    <img src="data:image/png;base64,@scannedImageBase64" 
+                         alt="Scanned Invoice" 
+                         style="max-width: 100%; height: auto; border-radius: 4px;" />
+                </div>
+                @if (!string.IsNullOrEmpty(scannedImagePath))
+                {
+                    <p class="text-muted small">Saved to: @scannedImagePath</p>
+                }
+            </div>
+            
+            <div class="d-flex flex-column gap-3 align-items-center">
+                <button @onclick="AcceptScan" 
+                        class="btn btn-success btn-lg w-75">
+                    <i class="bi bi-check-circle me-2"></i>Accept (Scan Successful)
+                </button>
+                
+                <button @onclick="RetryScan" 
+                        class="btn btn-warning btn-lg w-75"
+                        disabled="@isScanning">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Retry Scan
+                </button>
+                
+                <button @onclick="CancelImagePreview" 
+                        class="btn btn-secondary w-75">
+                    <i class="bi bi-x-circle me-2"></i>Close
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="text-center">
+                <p class="text-danger">Failed to scan invoice. Please try again.</p>
+                <button @onclick="RetryScan" 
+                        class="btn btn-primary"
+                        disabled="@isScanning">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Retry
+                </button>
+                <button @onclick="CancelImagePreview" 
+                        class="btn btn-secondary mt-2">
+                    <i class="bi bi-x-circle me-2"></i>Close
+                </button>
+            </div>
+        }
+    </div>
+</Popup>
+
 @code {
     private string? Message;
     private bool IsSuccess;
+    private bool showImagePreview = false;
+    private bool isScanning = false;
+    private string? scannedImagePath;
+    private string? scannedImageBase64;
+
+    [Inject] IConfiguration Configuration { get; set; }
 
     private void SetResult(bool success, string message)
     {
@@ -82,34 +166,289 @@
             SetResult(false, "Error: " + ex.Message);
         }
     }
-    [Inject] IConfiguration Configuration { get; set; }
-    private async Task TestCapture()
+    private async Task EnsureScannerClosed()
     {
+        // Try to close scanner if it's already open (safety measure)
         try
         {
-            var invoiceFolderPath = Configuration["InvoicePath"];
-
-            if (string.IsNullOrWhiteSpace(invoiceFolderPath))
-                throw new Exception("Invoice folder path is not configured.");
-
-            // Ensure folder exists
-            if (!Directory.Exists(invoiceFolderPath))
-                Directory.CreateDirectory(invoiceFolderPath);
-
-            // Create invoice file name
-            string invoiceFileName = $"INV-{DateTime.Now:yyyyMMddHHmmss}.png";
-
-            // Full save path
-            string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
-
-            string? output = ScannerService.ScanInvoice(invoicePath);
-
-            SetResult(output != null,
-                output != null ? $"Captured ✅ => {output}" : "Capture Failed ❌");
+            ScannerService.CloseScanner();
+            await Task.Delay(100); // Small delay to ensure scanner is fully closed
         }
-        catch (Exception ex)
+        catch
         {
-            SetResult(false, "Error: " + ex);
+            // Ignore errors - scanner might not be open
         }
+    }
+
+    private async Task TestCaptureWithPreview()
+    {
+        isScanning = true;
+        scannedImagePath = null;
+        scannedImageBase64 = null;
+        showImagePreview = true;
+        Message = null;
+        StateHasChanged();
+        
+        bool scannerOpened = false;
+        
+        // Ensure scanner is closed before starting
+        await EnsureScannerClosed();
+        
+        try
+        {
+            // Step 1: Check scanner connection
+            try
+            {
+                if (!ScannerService.IsScannerConnected())
+                {
+                    SetResult(false, "Scanner is not connected. Please check the scanner connection.");
+                    showImagePreview = false;
+                    isScanning = false;
+                    StateHasChanged();
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Log($"Error checking scanner connection: {ex.Message}");
+                LogService.Log($"Exception type: {ex.GetType().Name}");
+                LogService.Log($"Stack trace: {ex.StackTrace}");
+                SetResult(false, $"Error checking scanner: {ex.GetType().Name} - {ex.Message}");
+                showImagePreview = false;
+                isScanning = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Step 2: Validate configuration
+            var invoiceFolderPath = Configuration["InvoicePath"];
+            if (string.IsNullOrWhiteSpace(invoiceFolderPath))
+            {
+                SetResult(false, "Invoice folder path is not configured. Please set 'InvoicePath' in configuration.");
+                showImagePreview = false;
+                isScanning = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Step 3: Ensure folder exists
+            try
+            {
+                if (!Directory.Exists(invoiceFolderPath))
+                {
+                    Directory.CreateDirectory(invoiceFolderPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Log($"Error creating folder: {ex.Message}");
+                SetResult(false, $"Error creating invoice folder: {ex.Message}");
+                showImagePreview = false;
+                isScanning = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Step 4: Open scanner
+            try
+            {
+                // Small delay before opening to ensure previous operations are complete
+                await Task.Delay(200);
+                
+                var isSuccess = ScannerService.OpenScanner();
+                if (!isSuccess)
+                {
+                    SetResult(false, "Failed to open scanner. Return code indicates failure. Make sure the scanner is not in use by another application.");
+                    showImagePreview = false;
+                    isScanning = false;
+                    StateHasChanged();
+                    return;
+                }
+                scannerOpened = true;
+                LogService.Log("Scanner opened successfully");
+                
+                // Small delay after opening to ensure scanner is ready
+                await Task.Delay(300);
+            }
+            catch (Exception ex)
+            {
+                LogService.Log($"Error opening scanner: {ex.Message}");
+                LogService.Log($"Exception type: {ex.GetType().Name}");
+                LogService.Log($"Stack trace: {ex.StackTrace}");
+                SetResult(false, $"Error opening scanner: {ex.GetType().Name} - {ex.Message}. Make sure the scanner DLL is available and the device is connected.");
+                showImagePreview = false;
+                isScanning = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Step 5: Create file path
+            string invoiceFileName = $"TEST-INV-{DateTime.Now:yyyyMMddHHmmss}.png";
+            string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
+            
+            LogService.Log($"Attempting to scan to: {invoicePath}");
+
+            // Step 6: Scan invoice
+            string? path = null;
+            try
+            {
+                path = ScannerService.ScanInvoice(invoicePath);
+                LogService.Log($"ScanInvoice returned: {(path ?? "null")}");
+            }
+            catch (Exception ex)
+            {
+                LogService.Log($"Error during ScanInvoice: {ex.Message}");
+                LogService.Log($"Exception type: {ex.GetType().Name}");
+                LogService.Log($"Stack trace: {ex.StackTrace}");
+                
+                // Try to close scanner even if scan failed
+                if (scannerOpened)
+                {
+                    try
+                    {
+                        ScannerService.CloseScanner();
+                        scannerOpened = false;
+                    }
+                    catch (Exception closeEx)
+                    {
+                        LogService.Log($"Error closing scanner after scan failure: {closeEx.Message}");
+                    }
+                }
+                
+                SetResult(false, $"Error during scan: {ex.GetType().Name} - {ex.Message}. The scanner may not be ready or the DLL may have issues.");
+                showImagePreview = false;
+                isScanning = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Step 7: Close scanner
+            if (scannerOpened)
+            {
+                try
+                {
+                    ScannerService.CloseScanner();
+                    scannerOpened = false;
+                    LogService.Log("Scanner closed successfully");
+                }
+                catch (Exception closeEx)
+                {
+                    LogService.Log($"Error closing scanner: {closeEx.Message}");
+                    // Don't fail the whole operation if closing fails
+                }
+            }
+
+            // Step 8: Validate scan result
+            if (string.IsNullOrEmpty(path))
+            {
+                SetResult(false, "Scan failed: Scanner returned null path. The image was not captured.");
+                isScanning = false;
+                StateHasChanged();
+                return;
+            }
+
+            if (!File.Exists(path))
+            {
+                SetResult(false, $"Scan failed: File was not created at expected path: {path}");
+                isScanning = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Step 9: Store path and read image
+            scannedImagePath = path;
+            try
+            {
+                byte[] imageBytes = await File.ReadAllBytesAsync(path);
+                scannedImageBase64 = Convert.ToBase64String(imageBytes);
+                SetResult(true, $"Invoice scanned successfully! Saved to: {path}");
+                LogService.Log($"Image loaded successfully, size: {imageBytes.Length} bytes");
+            }
+            catch (Exception ex)
+            {
+                LogService.Log($"Error reading scanned image: {ex.Message}");
+                SetResult(false, $"Failed to load scanned image for preview: {ex.Message}");
+            }
+        }
+        catch (Exception e)
+        {
+            LogService.Log($"Unexpected error during scanning: {e.Message}");
+            LogService.Log($"Exception type: {e.GetType().Name}");
+            LogService.Log($"Stack trace: {e.StackTrace}");
+            
+            string errorMsg = $"Unexpected error: {e.GetType().Name} - {e.Message}";
+            if (e.InnerException != null)
+            {
+                errorMsg += $". Inner exception: {e.InnerException.Message}";
+                LogService.Log($"Inner exception: {e.InnerException.Message}");
+            }
+            
+            SetResult(false, errorMsg);
+            showImagePreview = false;
+            
+            // Ensure scanner is closed on error
+            if (scannerOpened)
+            {
+                try
+                {
+                    ScannerService.CloseScanner();
+                }
+                catch (Exception closeEx)
+                {
+                    LogService.Log($"Error closing scanner in finally: {closeEx.Message}");
+                }
+            }
+        }
+        finally
+        {
+            isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    async Task RetryScan()
+    {
+        // Close the preview and scan again
+        showImagePreview = false;
+        scannedImagePath = null;
+        scannedImageBase64 = null;
+        Message = null;
+        StateHasChanged();
+        
+        // Wait a moment for UI to update
+        await Task.Delay(300);
+        
+        // Capture again
+        await TestCaptureWithPreview();
+    }
+
+    async Task AcceptScan()
+    {
+        if (!string.IsNullOrEmpty(scannedImagePath) && File.Exists(scannedImagePath))
+        {
+            SetResult(true, $"Scan accepted! Image saved at: {scannedImagePath}");
+        }
+        
+        // Close the preview
+        showImagePreview = false;
+        scannedImagePath = null;
+        scannedImageBase64 = null;
+        StateHasChanged();
+    }
+
+    async Task CancelImagePreview()
+    {
+        // Close scanner if open
+        try
+        {
+            ScannerService.CloseScanner();
+        }
+        catch { }
+
+        // Reset state
+        showImagePreview = false;
+        scannedImagePath = null;
+        scannedImageBase64 = null;
+        StateHasChanged();
     }
 }
