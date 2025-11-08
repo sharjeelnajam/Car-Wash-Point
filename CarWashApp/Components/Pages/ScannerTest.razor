@@ -1,9 +1,17 @@
 ﻿@page "/scanner-test"
 @using CarWashApp.Services.Scanner
+@using CarWashApp.Services.Log
+@inject ScannerService ScannerService
 
-<h3>Scanner Connectivity Test</h3>
+<h3>Scanner Connectivity & API Test Panel</h3>
 
-<button class="btn btn-primary" @onclick="TestScanner">Test Scanner</button>
+<div class="mt-3">
+    <button class="btn btn-primary me-2" @onclick="TestScannerConnected">Check Scanner Count</button>
+    <button class="btn btn-info me-2" @onclick="TestScannerName">Get Scanner Name</button>
+    <button class="btn btn-success me-2" @onclick="TestOpenScanner">Open Scanner</button>
+    <button class="btn btn-warning me-2" @onclick="TestCloseScanner">Close Scanner</button>
+    <button class="btn btn-dark me-2" @onclick="TestCapture">Capture Test</button>
+</div>
 
 @if (!string.IsNullOrEmpty(Message))
 {
@@ -13,49 +21,95 @@
 }
 
 @code {
-    [Inject] ScannerService ScannerService { get; set; }
-
     private string? Message;
     private bool IsSuccess;
 
+    private void SetResult(bool success, string message)
+    {
+        IsSuccess = success;
+        Message = message;
+        LogService.Log(Message);
+    }
 
-    private async Task TestScanner()
+    private async Task TestScannerConnected()
     {
         try
         {
-            bool result = ScannerService.IsScannerConnected();
-
-            IsSuccess = result;
-            Message = result
-                ? "✅ Scanner is connected!"
-                : "❌ Scanner not found.";
-
-            Log($"Result: {result}");
+            var count = ScannerService.IsScannerConnected();
+            SetResult(count , $"Scanner Connected = {count}");
         }
         catch (Exception ex)
         {
-            IsSuccess = false;
-            Message = "⚠️ Error checking scanner. Check logs.";
-            throw;
-            Log("Exception: " + ex);
+            SetResult(false, "Error: " + ex.Message);
         }
     }
 
-    private void Log(string text)
+    private async Task TestScannerName()
     {
         try
         {
-            string logDir = Path.Combine(AppContext.BaseDirectory, "Logs");
-            Directory.CreateDirectory(logDir);
-
-            string logPath = Path.Combine(logDir, "scanner-test.log");
-            File.AppendAllText(logPath,
-                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} | {text}{Environment.NewLine}");
+            string? name = ScannerService.GetScannerName();
+            SetResult(name != null, name ?? "Name not found");
         }
         catch (Exception ex)
         {
-            throw;// You may want to log the exception to Event Viewer
+            SetResult(false, "Error: " + ex.Message);
         }
     }
 
+    private async Task TestOpenScanner()
+    {
+        try
+        {
+            bool result = ScannerService.OpenScanner();
+            SetResult(result, result ? "Device Opened ✅" : "Failed to Open ❌");
+        }
+        catch (Exception ex)
+        {
+            SetResult(false, "Error: " + ex.Message);
+        }
+    }
+
+    private async Task TestCloseScanner()
+    {
+        try
+        {
+            bool result = ScannerService.CloseScanner();
+            SetResult(result, result ? "Device Closed ✅" : "Failed to Close ❌");
+        }
+        catch (Exception ex)
+        {
+            SetResult(false, "Error: " + ex.Message);
+        }
+    }
+    [Inject] IConfiguration Configuration { get; set; }
+    private async Task TestCapture()
+    {
+        try
+        {
+            var invoiceFolderPath = Configuration["InvoicePath"];
+
+            if (string.IsNullOrWhiteSpace(invoiceFolderPath))
+                throw new Exception("Invoice folder path is not configured.");
+
+            // Ensure folder exists
+            if (!Directory.Exists(invoiceFolderPath))
+                Directory.CreateDirectory(invoiceFolderPath);
+
+            // Create invoice file name
+            string invoiceFileName = $"INV-{DateTime.Now:yyyyMMddHHmmss}.png";
+
+            // Full save path
+            string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
+
+            string? output = ScannerService.ScanInvoice(invoicePath);
+
+            SetResult(output != null,
+                output != null ? $"Captured ✅ => {output}" : "Capture Failed ❌");
+        }
+        catch (Exception ex)
+        {
+            SetResult(false, "Error: " + ex);
+        }
+    }
 }

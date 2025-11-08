@@ -28,7 +28,7 @@ namespace CarWashApp.Services.Scanner
         {
             // 1280x720 is a safe default resolution — can be changed later
             int result = ScannerInterop.OpenDevice(index, 1280, 720, IntPtr.Zero, false);
-            return result == 1;
+            return result == 0;
         }
 
         public bool CloseScanner()
