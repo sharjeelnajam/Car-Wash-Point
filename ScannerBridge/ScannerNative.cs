@@ -2,9 +2,9 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace CarWashApp.Services.Scanner
+namespace ScannerBridge
 {
-    public static class ScannerInterop
+    public static class ScannerNative
     {
         private const string DllName = "DevCapture.dll";
 
@@ -27,16 +27,16 @@ namespace CarWashApp.Services.Scanner
         public static extern int GetStillResolution(int rIndex, out int width, out int height);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int OpenDevice(int index, int width, int height, IntPtr hwnd, bool isDisplay);
+        public static extern int OpenDevice(int index, int width, int height, nint hwnd, bool isDisplay);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int OpenDeviceEx(int index, int width, int height, IntPtr hwnd, bool isDisplay);
+        public static extern int OpenDeviceEx(int index, int width, int height, nint hwnd, bool isDisplay);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int CloseDevice();
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        public static extern IntPtr CaptureFromPreview(string path, int isBarcode);
+        public static extern nint CaptureFromPreview(string path, int isBarcode);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public static extern int CaptureFromStill(string path);
@@ -114,7 +114,7 @@ namespace CarWashApp.Services.Scanner
         public static extern int ReadCard();
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern IntPtr GeCardInfo(int index);
+        public static extern nint GeCardInfo(int index);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int SetAutoExp(bool flag);
@@ -123,7 +123,7 @@ namespace CarWashApp.Services.Scanner
         public static extern int GetAutoCutRectNum();
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        public static extern IntPtr CaptureMultiCutImage(int index, string path);
+        public static extern nint CaptureMultiCutImage(int index, string path);
 
         public delegate void WiseCaptureCallback(int steadyFlag, string imagePath);
 

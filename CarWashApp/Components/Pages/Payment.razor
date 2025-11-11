@@ -549,9 +549,7 @@ else
 
         // Full save path
         string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
-        ScannerService.OpenScanner();
-        string? output = ScannerService.ScanInvoice(invoicePath);
-        ScannerService.CloseScanner();
+        string? output = await ScannerService.CallFunctionAsync($"{ScannerMethods.CaptureFromPreview}|{invoicePath}");
 
         if (output != null)
         {

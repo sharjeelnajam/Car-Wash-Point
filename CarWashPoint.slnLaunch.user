@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "ScannerBridge\\ScannerBridge.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "CarWashApp\\CarWashApp.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

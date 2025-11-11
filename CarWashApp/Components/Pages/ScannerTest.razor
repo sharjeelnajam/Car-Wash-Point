@@ -55,8 +55,8 @@
     {
         try
         {
-            var count = ScannerService.IsScannerConnected();
-            SetResult(count , $"Scanner Connected = {count}");
+            var count = await ScannerService.CallFunctionAsync(ScannerMethods.GetDeviceCount);
+            SetResult(true , $"Scanner Connected = {count}");
         }
         catch (Exception ex)
         {
@@ -68,7 +68,7 @@
     {
         try
         {
-            string? name = ScannerService.GetScannerName();
+            string? name = await ScannerService.CallFunctionAsync(ScannerMethods.GetDeviceName);
             SetResult(name != null, name ?? "Name not found");
         }
         catch (Exception ex)
@@ -81,8 +81,8 @@
     {
         try
         {
-            bool result = ScannerService.OpenScanner();
-            SetResult(result, result ? "Device Opened ✅" : "Failed to Open ❌");
+            var result = await ScannerService.CallFunctionAsync(ScannerMethods.OpenDevice);
+            SetResult(true, result);
         }
         catch (Exception ex)
         {
@@ -94,8 +94,8 @@
     {
         try
         {
-            bool result = ScannerService.CloseScanner();
-            SetResult(result, result ? "Device Closed ✅" : "Failed to Close ❌");
+            var result = await ScannerService.CallFunctionAsync(ScannerMethods.CloseDevice);
+            SetResult(true, result);
         }
         catch (Exception ex)
         {
@@ -122,7 +122,7 @@
             // Full save path
             string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
 
-            string? output = ScannerService.ScanInvoice(invoicePath);
+            string? output = await ScannerService.CallFunctionAsync($"{ScannerMethods.CaptureFromPreview}|{invoicePath}");
 
             if (output != null)
             {
