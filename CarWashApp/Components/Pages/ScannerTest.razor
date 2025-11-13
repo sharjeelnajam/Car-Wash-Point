@@ -44,23 +44,41 @@
     private string? Message;
     private bool IsSuccess;
 
-    private void SetResult(bool success, string message)
+    private void SetResult(bool success, string message, Exception? exception = null)
     {
         IsSuccess = success;
         Message = message;
-        LogService.Log(Message);
+        LogScannerEvent(message, success ? "INFO" : "ERROR", exception);
+    }
+
+    private void LogScannerEvent(string message, string level = "INFO", Exception? exception = null)
+    {
+        try
+        {
+            var fullMessage = $"[ScannerTest] [{level}] {message}";
+            if (exception is not null)
+            {
+                fullMessage += $" | Exception: {exception}";
+            }
+            LogService.Log(fullMessage);
+        }
+        catch
+        {
+            // Ignore logging errors
+        }
     }
 
     private async Task TestScannerConnected()
     {
         try
         {
+            LogScannerEvent("TestScannerConnected invoked.");
             var count = ScannerService.IsScannerConnected();
             SetResult(count , $"Scanner Connected = {count}");
         }
         catch (Exception ex)
         {
-            SetResult(false, "Error: " + ex.Message);
+            SetResult(false, "Error: " + ex.Message, ex);
         }
     }
 
@@ -68,12 +86,13 @@
     {
         try
         {
+            LogScannerEvent("TestScannerName invoked.");
             string? name = ScannerService.GetScannerName();
             SetResult(name != null, name ?? "Name not found");
         }
         catch (Exception ex)
         {
-            SetResult(false, "Error: " + ex.Message);
+            SetResult(false, "Error: " + ex.Message, ex);
         }
     }
 
@@ -81,12 +100,13 @@
     {
         try
         {
+            LogScannerEvent("TestOpenScanner invoked.");
             bool result = ScannerService.OpenScanner();
             SetResult(result, result ? "Device Opened ✅" : "Failed to Open ❌");
         }
         catch (Exception ex)
         {
-            SetResult(false, "Error: " + ex.Message);
+            SetResult(false, "Error: " + ex.Message, ex);
         }
     }
 
@@ -94,12 +114,13 @@
     {
         try
         {
+            LogScannerEvent("TestCloseScanner invoked.");
             bool result = ScannerService.CloseScanner();
             SetResult(result, result ? "Device Closed ✅" : "Failed to Close ❌");
         }
         catch (Exception ex)
         {
-            SetResult(false, "Error: " + ex.Message);
+            SetResult(false, "Error: " + ex.Message, ex);
         }
     }
     [Inject] IConfiguration Configuration { get; set; }
@@ -107,22 +128,31 @@
     {
         try
         {
+            LogScannerEvent("TestCapture invoked.");
             var invoiceFolderPath = Configuration["InvoicePath"];
 
             if (string.IsNullOrWhiteSpace(invoiceFolderPath))
+            {
+                LogScannerEvent("InvoicePath not configured.", "ERROR");
                 throw new Exception("Invoice folder path is not configured.");
+            }
 
             // Ensure folder exists
             if (!Directory.Exists(invoiceFolderPath))
+            {
                 Directory.CreateDirectory(invoiceFolderPath);
+                LogScannerEvent($"Created invoice directory at '{invoiceFolderPath}'.");
+            }
 
             // Create invoice file name
             string invoiceFileName = $"INV-{DateTime.Now:yyyyMMddHHmmss}.png";
 
             // Full save path
             string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
+            LogScannerEvent($"Attempting capture to '{invoicePath}'.");
 
             string? output = ScannerService.ScanInvoice(invoicePath);
+            LogScannerEvent($"ScannerService.ScanInvoice returned '{output ?? "null"}'.");
 
             if (output != null)
             {
@@ -133,10 +163,12 @@
                 LoadImageFromPath(invoicePath);
 
                 SetResult(true, $"Captured ✅ => {output}");
+                LogScannerEvent("Capture succeeded.");
             }
             else
             {
                 SetResult(false, "Capture Failed ❌");
+                LogScannerEvent("Capture failed.", "ERROR");
             }
 
             SetResult(output != null,
@@ -144,7 +176,7 @@
         }
         catch (Exception ex)
         {
-            SetResult(false, "Error: " + ex);
+            SetResult(false, "Error: " + ex.Message, ex);
         }
     }
     private string? ImageDataUri;
@@ -164,12 +196,13 @@
             else
             {
                 ImageDataUri = null;
+                LogScannerEvent($"LoadImageFromPath could not find file '{filePath}'.", "WARN");
             }
         }
         catch (Exception ex)
         {
             ImageDataUri = null;
-            SetResult(false, $"Error loading image: {ex.Message}");
+            SetResult(false, $"Error loading image: {ex.Message}", ex);
         }
     }
 

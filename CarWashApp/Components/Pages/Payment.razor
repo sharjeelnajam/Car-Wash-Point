@@ -11,6 +11,8 @@
 @using CarWashApp.Services.Scanner
 @using Microsoft.AspNetCore.WebUtilities
 @using CarWashApp.Components.Shared
+@using CarWashApp.Services.Log
+@using System.IO
 
 <button class="btn btn-lg btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/"))"> Home</button>
 
@@ -412,6 +414,8 @@ else
     {
         selectedPaymentMethod = method;
 
+        LogScannerEvent($"Payment method selected: {selectedPaymentMethod}");
+
         // Store original amount when payment method is first selected
         if (originalAmount == 0)
         {
@@ -426,19 +430,22 @@ else
 
     async Task ProcessPayment()
     {
+        LogScannerEvent("ProcessPayment started.");
         isProcessingPayment = true;
         try
         {
             // Handle card payments differently from cash payments
             if (selectedPaymentMethod == PaymentMethod.Card)
             {
+                LogScannerEvent("Card payment detected. Initiating capture workflow.");
                 // await ProcessCardPayment();
-                await CaptureImage();
+                await TestCapture();
                 return;
             }
 
             // Handle cash payments (existing logic)
             ToastService.ShowInfo("Starting payment...");
+            LogScannerEvent("Cash payment flow initiated.");
 
             // Use the new safe payment method
             var result = await ApiClient.StartPaymentSafely(carWashCharges * 100);
@@ -525,51 +532,192 @@ else
         catch (Exception ex)
         {
             ToastService.ShowError($"Payment error: {ex.Message}");
+            LogScannerEvent("ProcessPayment threw an exception.", ex);
         }
         finally
         {
             isProcessingPayment = false;
+            LogScannerEvent("ProcessPayment finished.");
         }
     }
     [Inject] IConfiguration Configuration { get; set; }
     [Inject] ScannerService ScannerService { get; set; }
+
+    private async Task TestCapture()
+    {
+        try
+        {
+            LogScannerEvent("TestCapture invoked.");
+            var invoiceFolderPath = Configuration["InvoicePath"];
+
+            if (string.IsNullOrWhiteSpace(invoiceFolderPath))
+            {
+                LogScannerEvent("InvoicePath not configured.");
+                throw new Exception("Invoice folder path is not configured.");
+            }
+
+            // Ensure folder exists
+            if (!Directory.Exists(invoiceFolderPath))
+            {
+                Directory.CreateDirectory(invoiceFolderPath);
+                LogScannerEvent($"Created invoice directory at '{invoiceFolderPath}'.");
+            }
+
+            // Create invoice file name
+            string invoiceFileName = $"INV-{DateTime.Now:yyyyMMddHHmmss}.png";
+
+            // Full save path
+            string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
+            LogScannerEvent($"Attempting capture to '{invoicePath}'.");
+
+            string? output = ScannerService.ScanInvoice(invoicePath);
+            LogScannerEvent($"ScannerService.ScanInvoice returned '{output ?? "null"}'.");
+
+            if (output != null)
+            {
+                // Store the filename
+                LastCapturedImage = invoiceFileName;
+
+                // Load and display the image directly
+                LoadImageFromPath(invoicePath);
+
+                ToastService.ShowSuccess("Capture image");
+                LogScannerEvent("Capture succeeded.");
+            }
+            else
+            {
+                ToastService.ShowError("Capture Failed ❌");
+                LogScannerEvent("Capture failed.");
+            }
+
+            ToastService.ShowInfo(output != null ? $"Captured ✅ => {output}" : "Capture Failed ❌");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError("Error: " + ex.Message);
+        }
+    }
     async Task CaptureImage()
     {
-        var invoiceFolderPath = Configuration["InvoicePath"];
+        LogScannerEvent("CaptureImage invoked.");
+        bool scannerOpened = false;
 
-        if (string.IsNullOrWhiteSpace(invoiceFolderPath))
-            throw new Exception("Invoice folder path is not configured.");
-
-        // Ensure folder exists
-        if (!Directory.Exists(invoiceFolderPath))
-            Directory.CreateDirectory(invoiceFolderPath);
-
-        // Create invoice file name
-        string invoiceFileName = $"INV-{DateTime.Now:yyyyMMddHHmmss}.png";
-
-        // Full save path
-        string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
-        ScannerService.OpenScanner();
-        string? output = ScannerService.ScanInvoice(invoicePath);
-        ScannerService.CloseScanner();
-
-        if (output != null)
+        try
         {
-            // Store the filename
-            LastCapturedImage = invoiceFileName;
+            var invoiceFolderPath = Configuration["InvoicePath"];
+            LogScannerEvent($"InvoicePath from configuration: '{invoiceFolderPath ?? "null"}'.");
 
-            // Load and display the image directly
-            LoadImageFromPath(invoicePath);
+            if (string.IsNullOrWhiteSpace(invoiceFolderPath))
+            {
+                throw new Exception("Invoice folder path is not configured.");
+            }
 
-            ToastService.ShowSuccess("Image Captured ");
+            if (!Directory.Exists(invoiceFolderPath))
+            {
+                Directory.CreateDirectory(invoiceFolderPath);
+                LogScannerEvent($"Created invoice directory at '{invoiceFolderPath}'.");
+            }
+
+            string invoiceFileName = $"INV-{DateTime.Now:yyyyMMddHHmmss}.png";
+            string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
+            LogScannerEvent($"Invoice image will be saved to '{invoicePath}'.");
+
+            // scannerOpened = ScannerService.OpenScanner();
+            // LogScannerEvent($"ScannerService.OpenScanner returned '{scannerOpened}'.");
+
+            // if (!scannerOpened)
+            // {
+            //     ToastService.ShowError("Unable to open the scanner device.");
+            //     return;
+            // }
+
+            // string? output = null;
+            // try
+            // {
+                var output = ScannerService.ScanInvoice(invoicePath);
+                LogScannerEvent($"ScannerService.ScanInvoice output: '{output ?? "null"}'.");
+            // }
+            // finally
+            // {
+            //     bool closed = ScannerService.CloseScanner();
+            //     LogScannerEvent($"ScannerService.CloseScanner returned '{closed}'.");
+            //     scannerOpened = false;
+            // }
+
+            bool fileReady = await WaitForImageFileAsync(invoicePath);
+            LogScannerEvent($"WaitForImageFileAsync('{invoicePath}') returned '{fileReady}'.");
+
+            if (!string.IsNullOrWhiteSpace(output) && fileReady)
+            {
+                LastCapturedImage = invoiceFileName;
+                LoadImageFromPath(invoicePath);
+                ToastService.ShowSuccess("Image Captured ");
+                LogScannerEvent("Capture succeeded and image loaded into preview.");
+            }
+            else
+            {
+                ToastService.ShowError("Capture Failed");
+                LogScannerEvent("Capture failed. Output empty or file not found.", null);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            ToastService.ShowError("Capture Failed");
+            ToastService.ShowError($"Capture failed: {ex.Message}");
+            LogScannerEvent("CaptureImage encountered an exception.", ex);
+        }
+        finally
+        {
+            if (scannerOpened)
+            {
+                try
+                {
+                    bool closed = ScannerService.CloseScanner();
+                    LogScannerEvent($"CaptureImage finalizer close result: '{closed}'.");
+                }
+                catch (Exception ex)
+                {
+                    LogScannerEvent("CaptureImage finalizer failed to close scanner.", ex);
+                }
+            }
         }
     }
     private string? ImageDataUri;
     private string? LastCapturedImage;
+
+    private void LogScannerEvent(string message, Exception? ex = null)
+    {
+        try
+        {
+            var logMessage = $"[Payment] {message}";
+            if (ex is not null)
+            {
+                logMessage += $" | Exception: {ex}";
+            }
+            LogService.Log(logMessage);
+        }
+        catch
+        {
+            // Ignore logging failures
+        }
+    }
+
+    private async Task<bool> WaitForImageFileAsync(string filePath, int maxAttempts = 20, int delayMs = 150)
+    {
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            if (File.Exists(filePath))
+            {
+                LogScannerEvent($"WaitForImageFileAsync detected file on attempt {attempt}.");
+                return true;
+            }
+
+            LogScannerEvent($"WaitForImageFileAsync attempt {attempt} - file not found.");
+            await Task.Delay(delayMs);
+        }
+
+        LogScannerEvent("WaitForImageFileAsync exhausted retries without finding the file.", null);
+        return false;
+    }
 
     private void LoadImageFromPath(string filePath)
     {
@@ -581,17 +729,20 @@ else
                 string base64String = Convert.ToBase64String(imageBytes);
                 ImageDataUri = $"data:image/png;base64,{base64String}";
                 StateHasChanged();
+                LogScannerEvent($"Preview image loaded from '{filePath}'.");
             }
             else
             {
                 ImageDataUri = null;
                 ToastService.ShowError("File not exits");
+                LogScannerEvent($"LoadImageFromPath could not find file '{filePath}'.");
             }
         }
         catch (Exception ex)
         {
             ImageDataUri = null;
             ToastService.ShowError($"Error loading image: {ex.Message}");
+            LogScannerEvent($"LoadImageFromPath threw an exception for '{filePath}'.", ex);
         }
     }
     async Task ProcessCardPayment()
@@ -599,6 +750,7 @@ else
         try
         {
             ToastService.ShowInfo("Processing card payment...");
+            LogScannerEvent("ProcessCardPayment started.");
 
             // Add transaction record immediately for card payment
             var description = redemptionType switch
@@ -616,12 +768,15 @@ else
                 PaymentMethod = PaymentMethod.Card
             };
             TransactionService.AddTransaction(dto);
+            LogScannerEvent("Transaction entry added for card payment.");
 
             // Handle loyalty points logic
             await HandleLoyaltyPoints();
+            LogScannerEvent("Loyalty points handled for card payment.");
             
             // Update invoice with actual payment data
             UpdateInvoiceData();
+            LogScannerEvent("Invoice data updated for card payment.");
             
             // Generate PDF and show popup
             pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
@@ -632,15 +787,18 @@ else
             ToastService.ShowSuccess("Card payment processed successfully!");
             
             StateHasChanged(); // Refresh UI to show popup
+            LogScannerEvent("ProcessCardPayment completed successfully.");
         }
         catch (Exception ex)
         {
             ToastService.ShowError($"Card payment error: {ex.Message}");
+            LogScannerEvent("ProcessCardPayment failed.", ex);
         }
     }
 
     async Task CancelPayment()
     {
+        LogScannerEvent("CancelPayment invoked.");
         isCancellingPayment = true;
         try
         {
@@ -649,6 +807,7 @@ else
             {
                 ToastService.ShowInfo("Cancelling card payment...");
                 ToastService.ShowSuccess("Card payment cancelled successfully!");
+                LogScannerEvent("Card payment cancellation completed.");
                 isPaymentSelected = false; // Reset payment selection
                 return;
             }
@@ -662,11 +821,13 @@ else
             if (result.Success)
             {
                 ToastService.ShowSuccess(result.Message);
+                LogScannerEvent("Cash payment cancellation succeeded.");
                 // NavigationManager.NavigateTo("/");
             }
             else
             {
                 ToastService.ShowWarning(result.Message);
+                LogScannerEvent($"Cash payment cancellation reported warning: {result.Message}");
             }
 
             // Reset payment selection regardless of success/failure
@@ -677,10 +838,12 @@ else
             ToastService.ShowError($"Cancel payment error: {ex.Message}");
             // Still reset payment selection on error
             isPaymentSelected = false;
+            LogScannerEvent("CancelPayment threw an exception.", ex);
         }
         finally
         {
             isCancellingPayment = false;
+            LogScannerEvent("CancelPayment finished.");
         }
     }
 
