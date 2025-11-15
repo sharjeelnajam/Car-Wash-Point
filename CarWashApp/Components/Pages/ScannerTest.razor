@@ -30,6 +30,11 @@
                      alt="Captured Invoice"
                      class="img-fluid"
                      style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;" />
+                <div class="d-flex justify-content-center mt-2">
+                    <button class="btn btn-outline-danger btn-sm" @onclick="RetryCapture" title="Retry capture">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Retry
+                    </button>
+                </div>
                 @if (!string.IsNullOrEmpty(LastCapturedImage))
                 {
                     <div class="mt-2">
@@ -40,6 +45,8 @@
         </div>
     </div>
 }
+
+
 @code {
     private string? Message;
     private bool IsSuccess;
@@ -206,4 +213,21 @@
         }
     }
 
+    private async Task RetryCapture()
+    {
+        var invoiceFolderPath = Configuration["InvoicePath"];
+        var file = Path.Combine(invoiceFolderPath, LastCapturedImage);
+        try
+        {
+            if (File.Exists(file))
+            {
+                File.Delete(file);
+            }
+            await TestCapture();
+        }
+        catch (Exception e)
+        {
+            LogScannerEvent($"Retry Capture failed for {file}","ERROR", e);
+        }
+    }
 }
