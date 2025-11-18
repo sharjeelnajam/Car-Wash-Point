@@ -16,6 +16,63 @@
 
 <button class="btn btn-lg btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/"))"> Home</button>
 
+@if (isPaymentSelected && selectedPaymentMethod == PaymentMethod.Card)
+{
+    <div class="container mt-3 mb-3">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white text-center">
+                        <h5 class="mb-0"><i class="bi bi-printer me-2"></i>Scanner Control</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex gap-2 justify-content-center flex-wrap">
+                            <button @onclick="OpenScanner"
+                                    class="btn btn-success btn-lg"
+                                    disabled="@(isOpeningScanner || isClosingScanner || scannerIsOpen)">
+                                @if (isOpeningScanner)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    @:Opening...
+                                }
+                                else if (scannerIsOpen)
+                                {
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    @:Scanner Open
+                                }
+                                else
+                                {
+                                    <i class="bi bi-power me-2"></i>
+                                    @:Open Scanner
+                                }
+                            </button>
+                            <button @onclick="CloseScanner"
+                                    class="btn btn-warning btn-lg"
+                                    disabled="@(isOpeningScanner || isClosingScanner || !scannerIsOpen)">
+                                @if (isClosingScanner)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    @:Closing...
+                                }
+                                else if (!scannerIsOpen)
+                                {
+                                    <i class="bi bi-x-circle me-2"></i>
+                                    @:Scanner Closed
+                                }
+                                else
+                                {
+                                    <i class="bi bi-power me-2"></i>
+                                    @:Close Scanner
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @if (isPaymentSelected)
 {
     <div class="container d-flex justify-content-center align-items-center"
@@ -364,6 +421,11 @@ else
     private bool useLoyaltyRedemption = false;
     private LoyaltyRedemptionType redemptionType = LoyaltyRedemptionType.None;
     private decimal originalAmount = 0m;
+    
+    // Scanner state tracking
+    private bool scannerIsOpen = false;
+    private bool isOpeningScanner = false;
+    private bool isClosingScanner = false;
 
     decimal CarWashCharges
     {
@@ -420,6 +482,21 @@ else
         selectedPaymentMethod = method;
 
         LogScannerEvent($"Payment method selected: {selectedPaymentMethod}");
+
+        // If switching away from card payment, close scanner if open
+        if (method != PaymentMethod.Card && scannerIsOpen)
+        {
+            LogScannerEvent("Payment method changed away from card. Closing scanner if open.");
+            try
+            {
+                ScannerService.CloseScanner();
+                scannerIsOpen = false;
+            }
+            catch (Exception ex)
+            {
+                LogScannerEvent("Error closing scanner when switching payment method.", ex);
+            }
+        }
 
         // Store original amount when payment method is first selected
         if (originalAmount == 0)
@@ -578,7 +655,7 @@ else
             string? output = ScannerService.ScanInvoice(invoicePath);
             LogScannerEvent($"ScannerService.ScanInvoice returned '{output ?? "null"}'.");
 
-            if (output != null)
+            if (output != null && File.Exists(output))
             {
                 // Store the filename
                 LastCapturedImage = invoiceFileName;
@@ -594,8 +671,6 @@ else
                 ToastService.ShowError("Capture Failed ❌");
                 LogScannerEvent("Capture failed.");
             }
-
-            ToastService.ShowInfo(output != null ? $"Captured ✅ => {output}" : "Capture Failed ❌");
         }
         catch (Exception ex)
         {
@@ -768,6 +843,129 @@ else
             LogScannerEvent($"Retry Capture failed for {file}", e);
         }
     }
+
+    private async Task OpenScanner()
+    {
+        isOpeningScanner = true;
+        LogScannerEvent("OpenScanner invoked.");
+        
+        try
+        {
+            // Check if scanner is already open
+            if (scannerIsOpen)
+            {
+                ToastService.ShowWarning("Scanner is already open. No action needed.");
+                LogScannerEvent("OpenScanner attempted but scanner is already open.");
+                return;
+            }
+
+            // Check if scanner is connected
+            bool isConnected = ScannerService.IsScannerConnected();
+            if (!isConnected)
+            {
+                ToastService.ShowError("No scanner device detected. Please connect a scanner and try again.");
+                LogScannerEvent("OpenScanner failed: No scanner device detected.");
+                return;
+            }
+
+            LogScannerEvent("Attempting to open scanner...");
+            bool result = ScannerService.OpenScanner();
+
+            if (result)
+            {
+                scannerIsOpen = true;
+                ToastService.ShowSuccess("Scanner opened successfully! ✅");
+                LogScannerEvent("Scanner opened successfully.");
+                StateHasChanged();
+            }
+            else
+            {
+                ToastService.ShowError("Failed to open scanner. Please check the device connection and try again.");
+                LogScannerEvent("OpenScanner failed: ScannerService.OpenScanner returned false.");
+            }
+        }
+        catch (Exception ex)
+        {
+            scannerIsOpen = false;
+            ToastService.ShowError($"Error opening scanner: {ex.Message}");
+            LogScannerEvent("OpenScanner threw an exception.", ex);
+        }
+        finally
+        {
+            isOpeningScanner = false;
+            LogScannerEvent("OpenScanner finished.");
+        }
+    }
+
+    private async Task CloseScanner()
+    {
+        isClosingScanner = true;
+        LogScannerEvent("CloseScanner invoked.");
+        
+        try
+        {
+            // Check if scanner is not open
+            if (!scannerIsOpen)
+            {
+                ToastService.ShowWarning("Scanner is already closed. No action needed.");
+                LogScannerEvent("CloseScanner attempted but scanner is not open.");
+                return;
+            }
+
+            LogScannerEvent("Attempting to close scanner...");
+            
+            // Wrap the synchronous call in a task with timeout to prevent hanging
+            var closeTask = Task.Run(() => ScannerService.CloseScanner());
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30)); // 5 second timeout
+            
+            var completedTask = await Task.WhenAny(closeTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                // Timeout occurred - the close operation took too long
+                scannerIsOpen = false; // Update state anyway to unblock UI
+                ToastService.ShowWarning("Scanner close operation timed out. Device may be unresponsive. State reset to allow retry.");
+                LogScannerEvent("CloseScanner timed out after 5 seconds. State reset.");
+                StateHasChanged();
+                return;
+            }
+            
+            // Task completed (either successfully or with exception)
+            bool result = await closeTask;
+
+            if (result)
+            {
+                scannerIsOpen = false;
+                ToastService.ShowSuccess("Scanner closed successfully! ✅");
+                LogScannerEvent("Scanner closed successfully.");
+                StateHasChanged();
+            }
+            else
+            {
+                // Even if CloseScanner returns false, we'll consider it closed for state management
+                // The underlying service might have issues, but we'll update our state
+                scannerIsOpen = false;
+                ToastService.ShowWarning("Scanner may have closed, but there was an issue with the device. State updated.");
+                LogScannerEvent("CloseScanner returned false but state updated.");
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            // On exception, still update state to reflect that we attempted to close
+            scannerIsOpen = false;
+            ToastService.ShowError($"Error closing scanner: {ex.Message}");
+            LogScannerEvent("CloseScanner threw an exception.", ex);
+            StateHasChanged();
+        }
+        finally
+        {
+            // Always reset the flag to unblock the UI, even if operation hangs
+            isClosingScanner = false;
+            LogScannerEvent("CloseScanner finished.");
+            StateHasChanged(); // Ensure UI updates
+        }
+    }
     async Task ProcessCardPayment()
     {
         try
@@ -829,6 +1027,23 @@ else
             if (selectedPaymentMethod == PaymentMethod.Card)
             {
                 ToastService.ShowInfo("Cancelling card payment...");
+                
+                // Close scanner if open
+                if (scannerIsOpen)
+                {
+                    LogScannerEvent("Closing scanner during card payment cancellation.");
+                    try
+                    {
+                        ScannerService.CloseScanner();
+                        scannerIsOpen = false;
+                        LogScannerEvent("Scanner closed during payment cancellation.");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogScannerEvent("Error closing scanner during payment cancellation.", ex);
+                    }
+                }
+                
                 ToastService.ShowSuccess("Card payment cancelled successfully!");
                 LogScannerEvent("Card payment cancellation completed.");
                 isPaymentSelected = false; // Reset payment selection
