@@ -39,6 +39,10 @@ else
             <i class="bi bi-gear-fill me-2"></i>Admin Panel
         </h3>
         <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-outline-primary btn-sm" @onclick="@(() => Navigation.NavigateTo("/admin/invoices"))">
+                <i class="bi bi-file-earmark-text me-1"></i>
+                View Invoices
+            </button>
             <span class="text-muted">
                 <i class="bi bi-person-circle me-1"></i>
                 Welcome, @AuthService.Username

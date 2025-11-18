@@ -10,6 +10,7 @@ using System.Net.Http.Headers;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using TransactionWashApp.Repositories;
+using Microsoft.AspNetCore.StaticFiles;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -366,5 +367,30 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Stream invoice files directly without loading into Blazor circuit
+app.MapGet("/invoices/{fileName}", (string fileName, IConfiguration config) =>
+{
+    var root = config["InvoicePath"];
+    if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+    {
+        return Results.NotFound();
+    }
+
+    var safeName = Path.GetFileName(fileName);
+    var fullPath = Path.Combine(root, safeName);
+    if (!File.Exists(fullPath))
+    {
+        return Results.NotFound();
+    }
+
+    var provider = new FileExtensionContentTypeProvider();
+    if (!provider.TryGetContentType(fullPath, out var contentType))
+    {
+        contentType = "application/octet-stream";
+    }
+
+    return Results.File(fullPath, contentType, enableRangeProcessing: true);
+});
 
 app.Run();
