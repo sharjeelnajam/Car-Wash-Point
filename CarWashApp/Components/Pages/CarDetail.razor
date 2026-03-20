@@ -1,4 +1,4 @@
-﻿@page "/car-detail/{licensePlate}"
+@page "/car-detail/{licensePlate}"
 @using CarWashApp.Models
 @using CarWashApp.Models.DTOs
 @using CarWashApp.Services
@@ -18,7 +18,7 @@ else
                 <strong>Color:</strong> @car.Color <br />
                 <strong>Loyalty Points:</strong> @car.LoyaltyPoints
             </p>
-            <button class="btn btn-success" @onclick="GoToPayment">Go Payment</button>
+            <button class="btn btn-success" @onclick="GoToSelectService">Select Service</button>
         </div>
     </div>
 }
@@ -46,9 +46,9 @@ else
 
 
 
-    void GoToPayment()
+    void GoToSelectService()
     {
         var carData = System.Text.Json.JsonSerializer.Serialize(car);
-        NavigationManager.NavigateTo($"payment?car={Uri.EscapeDataString(carData)}");
+        NavigationManager.NavigateTo($"services?car={Uri.EscapeDataString(carData)}");
     }
 }

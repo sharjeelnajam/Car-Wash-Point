@@ -1,4 +1,4 @@
-﻿using QuestPDF.Companion;
+using QuestPDF.Companion;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -197,18 +197,6 @@ namespace CarWashApp.Services
                                                 .Bold();
                                             subtotalRow.ConstantItem(80).AlignRight()
                                                 .Text($"${invoiceData.Subtotal:F2}")
-                                                .FontSize(12)
-                                                .Bold();
-                                        });
-
-                                        // Tax
-                                        totalsCol.Item().Row(taxRow =>
-                                        {
-                                            taxRow.RelativeItem().Text($"TAX ({(invoiceData.TaxRate * 100):F0}%):")
-                                                .FontSize(12)
-                                                .Bold();
-                                            taxRow.ConstantItem(80).AlignRight()
-                                                .Text($"${invoiceData.TaxAmount:F2}")
                                                 .FontSize(12)
                                                 .Bold();
                                         });

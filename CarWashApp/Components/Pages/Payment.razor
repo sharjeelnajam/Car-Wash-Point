@@ -1,4 +1,4 @@
-﻿@page "/payment"
+@page "/payment"
 @using Blazored.Toast.Configuration
 @using Blazored.Toast.Services
 @using CarWashApp.Models
@@ -67,7 +67,7 @@
                          class="form-control form-control-lg text-center"
                          placeholder="Enter amount"
                          style="font-size: 1.5rem; border-radius: 12px;"
-                         readonly />
+                         />
 
 
             <div class="mt-4 d-flex gap-2 justify-content-center flex-wrap">
@@ -219,13 +219,13 @@ else
                         <div class="card-body text-center">
                             <p class="mb-3">Enter the amount for your car wash service:</p>
                             <div class="mb-3">
-                                <InputNumber @bind-Value="carWashCharges"
+                                <InputNumber @bind-Value="CarWashCharges"
                                            type="number"
                                            step="0.01"
                                            class="form-control form-control-lg text-center"
                                            placeholder="Enter amount"
                                            style="font-size: 1.2rem; border-radius: 8px;"
-                                           readonly />
+                                           />
                             </div>
                             <small class="text-muted">Minimum amount: $5.00</small>
                         </div>
@@ -338,12 +338,17 @@ else
                     <i class="bi bi-eye me-2"></i>View Invoice
                 </button>
 
+                <button @onclick="PrintPdfFromPopup"
+                        class="btn btn-warning btn-lg w-75">
+                    <i class="bi bi-printer me-2"></i>Print Invoice
+                </button>
+
                 <button @onclick="DownloadPdfFromPopup"
                         class="btn btn-success btn-lg w-75">
                     <i class="bi bi-download me-2"></i>Download PDF
                 </button>
 
-                <button @onclick="@(() => showInvoicePopup = false)"
+                <button @onclick="CloseInvoicePopup"
                         class="btn btn-secondary w-75">
                     <i class="bi bi-x-circle me-2"></i>Close
                 </button>
@@ -479,6 +484,9 @@ else
         isProcessingPayment = true;
         try
         {
+            // Always close any active session before starting a new payment.
+            await EnsureNoActiveSessionForNewPayment();
+
             // Handle card payments differently from cash payments
             if (selectedPaymentMethod == PaymentMethod.Card)
             {
@@ -583,6 +591,62 @@ else
         {
             isProcessingPayment = false;
             LogScannerEvent("ProcessPayment finished.");
+        }
+    }
+
+    private async Task EnsureNoActiveSessionForNewPayment()
+    {
+        try
+        {
+            // If a payment session is already active, close it before starting a new one.
+            var closeResponse = await ApiClient.CloseSession();
+            if (closeResponse.IsSuccessStatusCode)
+            {
+                LogScannerEvent("Pre-payment CloseSession succeeded.");
+            }
+            else
+            {
+                LogScannerEvent($"Pre-payment CloseSession returned status {closeResponse.StatusCode}.");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Do not block the user if closing a stale session fails.
+            LogScannerEvent("Pre-payment CloseSession failed; continuing anyway.", ex);
+        }
+
+        // Poll the payment status briefly to ensure the backend/device actually left the active session.
+        try
+        {
+            // Active states we want to wait out:
+            // - NewPayment / Waiting / PayInStarted / Payment / PayInComplete
+            for (var attempt = 1; attempt <= 12; attempt++)
+            {
+                await Task.Delay(250);
+
+                var status = await ApiClient.CheckPaymentStatus();
+                var latestEvent = status?.Events?.LastOrDefault();
+                if (latestEvent == null) return;
+
+                if (!Enum.TryParse(latestEvent.EventType, out EventType latestEventType)) return;
+
+                var active =
+                    latestEventType == EventType.NewPayment ||
+                    latestEventType == EventType.Waiting ||
+                    latestEventType == EventType.PayInStarted ||
+                    latestEventType == EventType.Payment ||
+                    latestEventType == EventType.PayInComplete;
+
+                LogScannerEvent($"Pre-payment session poll attempt {attempt}: {latestEventType} (active={active})");
+
+                if (!active)
+                    return;
+            }
+        }
+        catch (Exception ex)
+        {
+            // If polling fails, we don't block the user; we'll still attempt the payment flow.
+            LogScannerEvent("Pre-payment status polling failed; continuing anyway.", ex);
         }
     }
     [Inject] IConfiguration Configuration { get; set; }
@@ -991,10 +1055,7 @@ else
         if (pdfBytes != null)
         {
             string base64 = Convert.ToBase64String(pdfBytes);
-            string dataUrl = $"data:application/pdf;base64,{base64}";
-            
-            // Open PDF in new browser tab using window.open
-            await JS.InvokeVoidAsync("eval", $"window.open('{dataUrl}', '_blank')");
+            await JS.InvokeVoidAsync("viewPdfHelper", base64);
         }
     }
 
@@ -1005,6 +1066,22 @@ else
             string base64 = Convert.ToBase64String(pdfBytes);
             await JS.InvokeVoidAsync("downloadHelper", $"Invoice_{invoiceDto.InvoiceNumber}.pdf", "application/pdf", base64);
         }
+    }
+
+    private async Task PrintPdfFromPopup()
+    {
+        if (pdfBytes != null)
+        {
+            string base64 = Convert.ToBase64String(pdfBytes);
+            await JS.InvokeVoidAsync("printPdfHelper", base64);
+        }
+    }
+
+    private async Task CloseInvoicePopup()
+    {
+        showInvoicePopup = false;
+        await Task.Yield();
+        StateHasChanged();
     }
 
     private string GetWashPackageName(string packageId)
@@ -1133,8 +1210,8 @@ else
         
         // Calculate totals correctly
         invoiceDto.Subtotal = finalAmount; // Subtotal is the amount after discounts
-        invoiceDto.TaxAmount = finalAmount * 0.20m; // Tax on the final amount
-        invoiceDto.TotalAmount = finalAmount * 1.20m; // Total including tax
+        invoiceDto.TaxAmount = 0m; // Tax removed from invoice
+        invoiceDto.TotalAmount = finalAmount; // Total equals payable amount
         invoiceDto.PaymentMethod = selectedPaymentMethod.ToString();
         invoiceDto.InvoiceNumber = $"INV-{DateTime.Now:yyyy-MM-dd-HHmmss}";
         invoiceDto.InvoiceDate = DateTime.Now;
@@ -1314,8 +1391,8 @@ else
                     originalAmount = carWashCharges;
                 }
             }
-            // Check for car parameter in URL (existing functionality)
-            else if (queryParams.TryGetValue("car", out var carJson))
+            // Check for car parameter in URL
+            if (queryParams.TryGetValue("car", out var carJson))
             {
                 var carData = Uri.UnescapeDataString(carJson);
                 selectedCar = System.Text.Json.JsonSerializer.Deserialize<CarDto>(carData);

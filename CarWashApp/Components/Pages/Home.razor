@@ -1,6 +1,7 @@
-﻿@page "/"
+@page "/"
 @using Blazored.Toast.Services
 @using CarWashApp.Services
+@using CarWashApp.Models.DTOs
 
 <PageTitle>Home Page</PageTitle>
 
@@ -12,19 +13,32 @@
                     <h1 class="mb-4">Welcome to Car Wash Point!</h1>
                     <p class="mb-4">Please choose an option below:</p>
                     <div class="d-grid gap-3">
-                        <div class="d-flex">
-                            @* <input value="@searchText" @oninput="@(e => searchText = e.Value?.ToString()?.ToUpperInvariant())"
-                                   class="form-control me-2" type="search" placeholder="Search..." aria-label="Search"> *@
-                            <InputText @bind-Value="searchText"
+                        <div class="position-relative">
+                            <div class="d-flex">
+                                <input value="@searchText"
+                                       @oninput="OnSearchInput"
                                        class="form-control me-2 uppercase-input"
                                        type="search"
                                        placeholder="Search..."
                                        aria-label="Search"
-                                       oninput="this.value = this.value.toUpperCase()"
                                        @onkeypress="@OnKeyPress" />
 
+                                <button @onclick="SearchCar" class="btn btn-outline-primary">Search</button>
+                            </div>
 
-                                   <button @onclick="SearchCar" class="btn btn-outline-primary">Search</button>
+                            @if (showSuggestions)
+                            {
+                                <div class="list-group position-absolute w-100 shadow-sm" style="z-index: 1050;">
+                                    @foreach (var car in filteredCars)
+                                    {
+                                        <button type="button"
+                                                class="list-group-item list-group-item-action text-start"
+                                                @onclick="@(() => SelectCar(car.LicensePlate))">
+                                            <strong>@car.LicensePlate</strong> - @car.Name (@car.Color)
+                                        </button>
+                                    }
+                                </div>
+                            }
                         </div>
                         <NavLink class="btn btn-primary btn-lg" href="car-registration">Car Registration</NavLink>
                     </div>
@@ -39,6 +53,8 @@
     [Inject] ICarService CarService { get; set; }
     [Inject] IToastService ToastService { get; set; }
     string searchText = string.Empty;
+    List<CarDto> filteredCars = new();
+    bool showSuggestions => searchText?.Trim().Length >= 2 && filteredCars.Count > 0;
 
     void SearchCar()
     {
@@ -54,6 +70,33 @@
                 ToastService.ShowError($"Car not found for {searchText}");
             }
         }
+    }
+
+    void OnSearchInput(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString()?.ToUpperInvariant() ?? string.Empty;
+        var query = searchText.Trim();
+
+        if (query.Length < 2)
+        {
+            filteredCars.Clear();
+            return;
+        }
+
+        filteredCars = CarService.GetAllCars()
+            .Where(car =>
+                (!string.IsNullOrEmpty(car.LicensePlate) && car.LicensePlate.Contains(query, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(car.Name) && car.Name.Contains(query, StringComparison.OrdinalIgnoreCase)))
+            .Take(8)
+            .ToList();
+    }
+
+    void SelectCar(string licensePlate)
+    {
+        if (string.IsNullOrWhiteSpace(licensePlate)) return;
+        searchText = licensePlate;
+        filteredCars.Clear();
+        NavigationManager.NavigateTo($"car-detail/{licensePlate}");
     }
 
     void OnKeyPress(KeyboardEventArgs e)

@@ -1,5 +1,7 @@
-﻿@page "/services"
+@page "/services"
 @using System.Diagnostics.CodeAnalysis
+@using CarWashApp.Models.DTOs
+@using Microsoft.AspNetCore.WebUtilities
 
 <h3>Services</h3>
 
@@ -179,7 +181,7 @@
                         <span class="btn-icon">❌</span>Cancel
                     </button>
                     <button type="button" class="btn-confirm" @onclick="Confirm" disabled="@(string.IsNullOrEmpty(selectedWashPackage))">
-                        <span class="btn-icon">✅</span>Confirm Order
+                        <span class="btn-icon">✅</span>Go to Payment
                         <span class="confirm-price">£@CalculateTotal().ToString("F2")</span>
                     </button>
                 </div>
@@ -192,12 +194,32 @@
     [Inject] NavigationManager NavigationManager { get; set; } 
     private bool showPopup = false;
     private VehicleType selectedVehicle = new();
+    private CarDto? selectedCar;
     
     // Service selection state
     private string selectedVanSize = "Small";
     private string selectedWashPackage = "";
     private HashSet<string> selectedAddOns = new();
     private decimal dirtyCharge = 0m;
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+            var queryParams = QueryHelpers.ParseQuery(uri.Query);
+
+            if (queryParams.TryGetValue("car", out var carJson))
+            {
+                var carData = Uri.UnescapeDataString(carJson);
+                selectedCar = System.Text.Json.JsonSerializer.Deserialize<CarDto>(carData);
+            }
+        }
+        catch
+        {
+            selectedCar = null;
+        }
+    }
 
     public class VehicleType
     {
@@ -404,7 +426,17 @@
         // Serialize the selected vehicle data and pass it to the payment page
         var vehicleJson = System.Text.Json.JsonSerializer.Serialize(selectedVehicle);
         var encodedVehicle = Uri.EscapeDataString(vehicleJson);
-        NavigationManager.NavigateTo($"payment?vehicle={encodedVehicle}");
+
+        if (selectedCar != null)
+        {
+            var carJson = System.Text.Json.JsonSerializer.Serialize(selectedCar);
+            var encodedCar = Uri.EscapeDataString(carJson);
+            NavigationManager.NavigateTo($"payment?vehicle={encodedVehicle}&car={encodedCar}");
+        }
+        else
+        {
+            NavigationManager.NavigateTo($"payment?vehicle={encodedVehicle}");
+        }
     }
 
     private void SelectVehicle(VehicleType vehicle)
