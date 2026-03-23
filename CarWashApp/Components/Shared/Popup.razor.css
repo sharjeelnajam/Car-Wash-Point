@@ -1,4 +1,4 @@
-﻿.popup-backdrop {
+.popup-backdrop {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
@@ -50,5 +50,44 @@
     white-space: pre-wrap; /* preserves \n and wraps text */
     word-wrap: break-word;
     font-family: inherit;
+}
+
+/* Light checkout dialog — higher specificity than .popup[b-…] so it overrides dark theme */
+.popup.popup-checkout {
+    background: #fff;
+    color: #212529;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+    width: min(22rem, 94vw);
+    height: fit-content;
+    max-height: min(90vh, 640px);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.popup.popup-checkout .popup-title {
+    color: #212529;
+    padding: 14px 40px 0 16px;
+    margin-bottom: 4px;
+    font-size: 1.1rem;
+}
+
+.popup.popup-checkout .popup-body {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+    margin-bottom: 0;
+    padding: 4px 0 12px;
+    color: #212529;
+}
+
+.popup.popup-checkout .popup-close {
+    color: #6c757d;
+}
+
+.popup.popup-checkout .popup-close:hover {
+    color: #212529;
 }
 

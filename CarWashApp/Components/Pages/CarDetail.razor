@@ -4,6 +4,10 @@
 @using CarWashApp.Services
 <h3>CarDetail</h3>
 
+<div class="d-flex justify-content-end mb-2">
+    <button class="btn btn-outline-danger btn-sm px-4" @onclick="GoBack">Back</button>
+</div>
+
 @if (car == null)
 {
     <div class="alert alert-danger">Car not found!</div>
@@ -50,5 +54,10 @@ else
     {
         var carData = System.Text.Json.JsonSerializer.Serialize(car);
         NavigationManager.NavigateTo($"services?car={Uri.EscapeDataString(carData)}");
+    }
+
+    void GoBack()
+    {
+        NavigationManager.NavigateTo("/");
     }
 }

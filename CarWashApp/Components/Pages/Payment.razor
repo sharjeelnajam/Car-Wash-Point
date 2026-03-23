@@ -14,13 +14,13 @@
 @using CarWashApp.Services.Log
 @using System.IO
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <button class="btn btn-lg btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/"))"> Home</button>
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+    <button class="btn btn-primary btn-sm" @onclick="@(() => NavigationManager.NavigateTo("/"))"> Home</button>
     
-    @if (isPaymentSelected && selectedPaymentMethod == PaymentMethod.Card)
+    @if (isPaymentSelected && (selectedPaymentMethod == PaymentMethod.Card || selectedPaymentMethod == PaymentMethod.Split))
     {
         <button @onclick="OpenScanner"
-                class="btn btn-success btn-lg"
+                class="btn btn-success btn-sm"
                 disabled="@(isOpeningScanner || scannerIsOpen)">
             @if (isOpeningScanner)
             {
@@ -45,119 +45,130 @@
     }
 </div>
 
-@if (isPaymentSelected)
-{
-    <div class="container d-flex justify-content-center align-items-center"
-         style="overflow: hidden;">
-
-        <div class="card shadow-lg p-5 text-center"
-             style="max-width: 500px; border-radius: 20px;">
-
-            @* <h2 class="mb-4" style="font-size: 2rem; font-weight: bold;">
-                Charges for car wash: <span style="color: #007bff;">@carWashCharges €</span>
-            </h2> *@
-
-            <p class="mb-3" style="font-size: 1.5rem; font-weight: 500;">
-                Amount To Pay:
-            </p>
-
+<Popup IsOpen="@isPaymentSelected"
+       IsOpenChanged="OnCheckoutPopupOpenChanged"
+       Title="Checkout"
+       CssClass="popup-checkout"
+       BackdropCssClass="popup-backdrop-soft"
+       CloseOnBackdropClick="true">
+    <div class="checkout-popup-inner shadow-sm">
+        <p class="text-muted small text-uppercase mb-1" style="letter-spacing: .04em;">Total to pay</p>
+        <div class="mb-2">
             <InputNumber @bind-Value="CarWashCharges"
                          type="number"
                          step="0.01"
-                         class="form-control form-control-lg text-center"
-                         placeholder="Enter amount"
-                         style="font-size: 1.5rem; border-radius: 12px;"
-                         />
+                         class="form-control form-control-lg text-center fw-bold py-2"
+                         placeholder="0.00"
+                         style="font-size: clamp(1.1rem, 3.5vw, 1.4rem); border-radius: 8px;" />
+        </div>
 
+        @if (selectedPaymentMethod == PaymentMethod.Split)
+        {
+            <hr class="my-2" />
+            <p class="small fw-semibold text-start mb-2">Split: cash + card</p>
 
-            <div class="mt-4 d-flex gap-2 justify-content-center flex-wrap">
-                <button @onclick="ProcessPayment"
-                        class="btn btn-success btn-lg"
-                        disabled="@(isProcessingPayment || isCancellingPayment)">
-                    @if (isProcessingPayment)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                        @:Scanning...
-                    }
-                    else
-                    {
-                        <i class="bi bi-credit-card me-2"></i>
-                        @:Scan Image
-                    }
-                </button>
-
-                @* <button @onclick="CancelPayment"
-                        class="btn btn-warning btn-lg"
-                        disabled="@(isCancellingPayment)">
-                    @if (isCancellingPayment)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                        @:Cancelling...
-                    }
-                    else
-                    {
-                        <i class="bi bi-x-circle me-2"></i>
-                        @:Cancel Session
-                    }
-                </button> *@
-
-                @* <button @onclick="CloseSession" 
-                        class="btn btn-secondary btn-lg" 
-                        disabled="@(isProcessingPayment || isCancellingPayment || isClosingSession)">
-                    @if (isClosingSession)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                        @:Closing...
-                    }
-                    else
-                    {
-                        <i class="bi bi-door-closed me-2"></i>
-                        @:Close Session
-                    }
-                </button> *@
+            <div class="text-start small">
+                <label class="form-label mb-1 fw-bold d-flex align-items-center gap-1">
+                    <i class="bi bi-cash-coin text-success fs-5" aria-hidden="true"></i>
+                    <span>Cash</span>
+                </label>
+                <InputNumber @bind-Value="SplitCashAmountBinding"
+                             type="number"
+                             step="0.01"
+                             class="form-control form-control-sm text-center mb-2"
+                             placeholder="0.00" />
             </div>
+
+            <div class="d-flex justify-content-between align-items-center small mb-1 px-1">
+                <span class="fw-bold d-flex align-items-center gap-1 text-body">
+                    <i class="bi bi-credit-card-2-front text-primary fs-5" aria-hidden="true"></i>
+                    <span>Card</span>
+                </span>
+                <span class="fw-semibold">@GetSplitCardAmount().ToString("C")</span>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center small mb-2 px-1 border-top pt-2">
+                <span class="text-muted">Cash + card</span>
+                <span class="fw-bold @(SplitAmountsSumMatchesTotal ? "text-success" : "text-danger")">
+                    @((splitCashAmount + GetSplitCardAmount()).ToString("C"))
+                </span>
+            </div>
+
+            @if (!SplitAmountsSumMatchesTotal && carWashCharges > 0)
+            {
+                <div class="alert alert-warning py-1 px-2 mb-2 small text-start" role="alert">
+                    Cash plus card must equal the total. Adjust amounts or the total above.
+                </div>
+            }
+        }
+
+        <div class="mt-2 d-grid gap-2">
+            <button type="button"
+                    @onclick="ProcessPayment"
+                    class="btn btn-success"
+                    disabled="@(isProcessingPayment || isCancellingPayment || !CanProceedToCheckout)">
+                @if (isProcessingPayment)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                    @:Processing...
+                }
+                else if (selectedPaymentMethod == PaymentMethod.Split)
+                {
+                    <i class="bi bi-wallet2 me-1"></i>
+                    @:Pay
+                }
+                else if (selectedPaymentMethod == PaymentMethod.Cash)
+                {
+                    <i class="bi bi-cash-coin me-1"></i>
+                    @:Pay with cash
+                }
+                else
+                {
+                    <i class="bi bi-credit-card me-1"></i>
+                    @:Scan Image
+                }
+            </button>
         </div>
     </div>
+</Popup>
 
-    @if (!string.IsNullOrEmpty(ImageDataUri))
-    {
-        <div class="container mt-4">
-            <div class="row justify-content-center">
-                <div class="col-md-8 col-lg-6">
-                    <div class="card shadow-lg">
-                        <div class="card-header bg-info text-white text-center">
-                            <h4 class="mb-0"><i class="bi bi-image me-2"></i>Captured Invoice Image</h4>
+@if (isPaymentSelected && !string.IsNullOrEmpty(ImageDataUri))
+{
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow-lg">
+                    <div class="card-header bg-info text-white text-center">
+                        <h4 class="mb-0"><i class="bi bi-image me-2"></i>Captured Invoice Image</h4>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <img src="@ImageDataUri"
+                                 alt="Captured Invoice"
+                                 class="img-fluid"
+                                 style="max-width: 100%; max-height: 600px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
                         </div>
-                        <div class="card-body text-center">
-                            <div class="mb-3">
-                                <img src="@ImageDataUri"
-                                     alt="Captured Invoice"
-                                     class="img-fluid"
-                                     style="max-width: 100%; max-height: 600px; height: auto; border: 2px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);" />
-                            </div>
-                            <div class="d-flex justify-content-center">
-                                <button class="btn btn-outline-danger btn-sm" @onclick="RetryCapture" title="Retry capture">
-                                    <i class="bi bi-arrow-clockwise me-1"></i>Retry
-                                </button>
-                            </div>
-                            @if (!string.IsNullOrEmpty(LastCapturedImage))
-                            {
-                                <div class="mt-2">
-                                    <small class="text-muted">
-                                        <i class="bi bi-file-image me-1"></i>Filename: @LastCapturedImage
-                                    </small>
-                                </div>
-                            }
+                        <div class="d-flex justify-content-center">
+                            <button class="btn btn-outline-danger btn-sm" @onclick="RetryCapture" title="Retry capture">
+                                <i class="bi bi-arrow-clockwise me-1"></i>Retry
+                            </button>
                         </div>
+                        @if (!string.IsNullOrEmpty(LastCapturedImage))
+                        {
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-file-image me-1"></i>Filename: @LastCapturedImage
+                                </small>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
         </div>
-    }
+    </div>
 }
-else
-{
-    <div class="container mt-5">
+
+<div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-md-8 col-lg-6">
                 <!-- Vehicle Information Card -->
@@ -312,6 +323,13 @@ else
                                     class="btn btn-info btn-lg w-75 text-white" type="button">
                                 <i class="bi bi-credit-card-2-front me-2"></i>Card
                             </button>
+                            @if (carWashCharges > 0)
+                            {
+                                <button @onclick=@(() => PaymentMethodSelected(PaymentMethod.Split))
+                                        class="btn btn-warning btn-lg w-75 text-dark" type="button">
+                                    <i class="bi bi-cash-stack me-2"></i>Split (cash + card)
+                                </button>
+                            }
                         </div>
                     </div>
                 </div>
@@ -319,7 +337,7 @@ else
             </div>
         </div>
     </div>
-}
+
 <Popup IsOpen="@showInvoicePopup"
        IsOpenChanged="@((bool isOpen) => showInvoicePopup = isOpen)"
        Title="Invoice - Payment Complete"
@@ -417,6 +435,13 @@ else
                 value = Math.Truncate(value * 100) / 100;
                 carWashCharges = value;
 
+                if (selectedPaymentMethod == PaymentMethod.Split && carWashCharges > 0.02m &&
+                    splitCashAmount > carWashCharges - 0.01m)
+                {
+                    splitCashAmount = Math.Truncate((carWashCharges - 0.01m) * 100) / 100;
+                    splitCashAmount = Math.Max(0.01m, splitCashAmount);
+                }
+
                 // Store the user-entered amount as original amount if it's valid
                 if (value >= 5)
                 {
@@ -453,17 +478,64 @@ else
     };
 
     PaymentMethod selectedPaymentMethod;
+    /// <summary>Cash portion when <see cref="PaymentMethod.Split"/> is selected.</summary>
+    private decimal splitCashAmount;
+
+    /// <summary>Input binding for split cash amount (2 decimal places).</summary>
+    private decimal SplitCashAmountBinding
+    {
+        get => splitCashAmount;
+        set
+        {
+            var v = Math.Truncate(Math.Max(0, value) * 100) / 100;
+            if (carWashCharges > 0.01m && v > carWashCharges - 0.01m)
+                v = Math.Truncate((carWashCharges - 0.01m) * 100) / 100;
+            splitCashAmount = Math.Max(0, v);
+            StateHasChanged();
+        }
+    }
+
+    private decimal GetSplitCardAmount()
+    {
+        var card = carWashCharges - splitCashAmount;
+        return Math.Truncate(Math.Max(0, card) * 100) / 100;
+    }
+
+    /// <summary>True when cash + card equals total (within 2p) and both parts are positive.</summary>
+    private bool SplitAmountsSumMatchesTotal =>
+        carWashCharges > 0 &&
+        splitCashAmount >= 0.01m &&
+        GetSplitCardAmount() >= 0.01m &&
+        Math.Abs(splitCashAmount + GetSplitCardAmount() - carWashCharges) <= 0.02m;
+
+    /// <summary>Checkout allowed: positive total; for split, amounts must match total.</summary>
+    private bool CanProceedToCheckout =>
+        carWashCharges > 0 &&
+        (selectedPaymentMethod != PaymentMethod.Split || SplitAmountsSumMatchesTotal);
+
     Task PaymentMethodSelected(PaymentMethod method)
     {
         selectedPaymentMethod = method;
 
         LogScannerEvent($"Payment method selected: {selectedPaymentMethod}");
 
-        // If switching away from card payment, reset scanner state
-        if (method != PaymentMethod.Card && scannerIsOpen)
+        // If switching away from card / split (scanner), reset scanner state
+        if (method != PaymentMethod.Card && method != PaymentMethod.Split && scannerIsOpen)
         {
-            LogScannerEvent("Payment method changed away from card. Resetting scanner state.");
+            LogScannerEvent("Payment method changed away from card/split. Resetting scanner state.");
             scannerIsOpen = false;
+        }
+
+        if (method == PaymentMethod.Split && carWashCharges > 0)
+        {
+            splitCashAmount = Math.Round(carWashCharges / 2, 2, MidpointRounding.AwayFromZero);
+            var cardPart = GetSplitCardAmount();
+            if (splitCashAmount < 0.01m || cardPart < 0.01m)
+                splitCashAmount = Math.Round(carWashCharges * 0.5m, 2, MidpointRounding.AwayFromZero);
+            if (splitCashAmount >= carWashCharges)
+                splitCashAmount = Math.Truncate((carWashCharges - 0.01m) * 100) / 100;
+            if (splitCashAmount < 0.01m)
+                splitCashAmount = 0.01m;
         }
 
         // Store original amount when payment method is first selected
@@ -477,10 +549,24 @@ else
         return Task.CompletedTask;
     }
 
+    private Task OnCheckoutPopupOpenChanged(bool open)
+    {
+        isPaymentSelected = open;
+        if (!open && scannerIsOpen)
+            scannerIsOpen = false;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
 
     async Task ProcessPayment()
     {
         LogScannerEvent("ProcessPayment started.");
+        if (!CanProceedToCheckout)
+        {
+            ToastService.ShowWarning("Total must be greater than zero. For split pay, cash + card must equal the total.");
+            return;
+        }
+
         isProcessingPayment = true;
         try
         {
@@ -493,6 +579,49 @@ else
                 LogScannerEvent("Card payment detected. Initiating capture workflow.");
                 // await ProcessCardPayment();
                 await TestCapture();
+                return;
+            }
+
+            // Split: cash device first for cash portion, then card (scanner) for remainder — one transaction
+            if (selectedPaymentMethod == PaymentMethod.Split)
+            {
+                if (!ValidateSplitAmounts())
+                    return;
+
+                var cashPart = splitCashAmount;
+                var cardPart = GetSplitCardAmount();
+                LogScannerEvent($"Split payment: cash={cashPart}, card={cardPart}, total={carWashCharges}");
+
+                ToastService.ShowInfo($"Step 1/2: Take {cashPart:C} in cash on the device…");
+                var cashOk = await StartCashSessionAndPollUntilCompleteAsync(cashPart);
+                if (!cashOk)
+                    return;
+
+                ToastService.ShowInfo($"Cash received. Step 2/2: Take {cardPart:C} on card, then capture (Scan).");
+                await TestCapture();
+
+                var splitDescription = redemptionType switch
+                {
+                    LoyaltyRedemptionType.FreeWash => $"FREE wash for {GetCarInfo()} (redeemed 10 loyalty points)",
+                    LoyaltyRedemptionType.HalfPrice => $"Paid {carWashCharges:C} split ({cashPart:C} cash + {cardPart:C} card) for {GetCarInfo()} (redeemed 5 loyalty points - was {originalAmount:C})",
+                    _ => $"Paid {carWashCharges:C} split ({cashPart:C} cash + {cardPart:C} card) for {GetCarInfo()} (earned 1 loyalty point)"
+                };
+
+                TransactionService.AddTransaction(new TransactionDto
+                {
+                    Amount = carWashCharges,
+                    Date = DateTime.UtcNow,
+                    Description = splitDescription,
+                    PaymentMethod = PaymentMethod.Split
+                });
+
+                await HandleLoyaltyPoints();
+                UpdateInvoiceData();
+                pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
+                showInvoicePopup = true;
+                isPaymentSelected = false;
+                StateHasChanged();
+                ToastService.ShowSuccess("Split payment completed.");
                 return;
             }
 
@@ -525,55 +654,16 @@ else
                 };
                 TransactionService.AddTransaction(dto);
 
-                // Monitor payment status
-                while (true)
+                var completed = await PollCashPaymentUntilTerminalAsync();
+                if (completed)
                 {
-                    var status = await ApiClient.CheckPaymentStatus();
-                    var latestEvent = status?.Events?.LastOrDefault();
-
-                    if (latestEvent != null)
-                    {
-                        if (Enum.TryParse(latestEvent.EventType, out EventType latestEventType))
-                        {
-                            switch (latestEventType)
-                            {
-                                case EventType.Waiting:
-                                    ToastService.ShowInfo("Payment session is active and waiting for cash.");
-                                    break;
-                                case EventType.PaymentComplete:
-                                    ToastService.ShowSuccess("Payment completed successfully!");
-
-                                    // Handle loyalty points logic
-                                    await HandleLoyaltyPoints();
-
-                                    // Update invoice with actual payment data
-                                    UpdateInvoiceData();
-
-                                    // Generate PDF and show popup
-                                    pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
-                                    showInvoicePopup = true;
-                                    isPaymentSelected = false; // Reset payment selection
-                                    StateHasChanged(); // Refresh UI to show popup
-                                    return;
-                                case EventType.CancelComplete:
-                                    ToastService.ShowWarning("Payment was canceled.");
-                                    isPaymentSelected = false; // Reset payment selection 
-                                    return;
-                                case EventType.StoppingPayment:
-                                    ToastService.ShowWarning("Payment is stopping...");
-                                    break;
-                                case EventType.Idle:
-                                    isPaymentSelected = false; // Reset payment selection
-                                    return;
-                                default:
-                                    ToastService.ShowInfo($"Payment in progress... Current status: {latestEventType}");
-                                    break;
-                            }
-                        }
-                    }
-
-                    // Add a delay to prevent rapid, unnecessary polling
-                    await Task.Delay(3000);
+                    ToastService.ShowSuccess("Payment completed successfully!");
+                    await HandleLoyaltyPoints();
+                    UpdateInvoiceData();
+                    pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
+                    showInvoicePopup = true;
+                    isPaymentSelected = false;
+                    StateHasChanged();
                 }
             }
             else
@@ -591,6 +681,84 @@ else
         {
             isProcessingPayment = false;
             LogScannerEvent("ProcessPayment finished.");
+        }
+    }
+
+    private bool ValidateSplitAmounts()
+    {
+        var cardPart = GetSplitCardAmount();
+        if (carWashCharges <= 0)
+        {
+            ToastService.ShowError("No amount to split.");
+            return false;
+        }
+
+        if (splitCashAmount < 0.01m || cardPart < 0.01m)
+        {
+            ToastService.ShowError("Enter a cash amount so both cash and card parts are at least £0.01.");
+            return false;
+        }
+
+        if (Math.Abs(splitCashAmount + cardPart - carWashCharges) > 0.02m)
+        {
+            ToastService.ShowError($"Cash ({splitCashAmount:C}) + card ({cardPart:C}) must equal total ({carWashCharges:C}).");
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>Start a cash session for <paramref name="amount"/> and poll until paid, cancelled, or idle.</summary>
+    private async Task<bool> StartCashSessionAndPollUntilCompleteAsync(decimal amount)
+    {
+        var result = await ApiClient.StartPaymentSafely(amount * 100);
+        if (!result.Success)
+        {
+            ToastService.ShowError(result.Message);
+            return false;
+        }
+
+        ToastService.ShowSuccess(result.Message);
+        return await PollCashPaymentUntilTerminalAsync();
+    }
+
+    /// <summary>Poll payment device after a cash session has already been started.</summary>
+    private async Task<bool> PollCashPaymentUntilTerminalAsync()
+    {
+        while (true)
+        {
+            var status = await ApiClient.CheckPaymentStatus();
+            var latestEvent = status?.Events?.LastOrDefault();
+
+            if (latestEvent != null)
+            {
+                if (Enum.TryParse(latestEvent.EventType, out EventType latestEventType))
+                {
+                    switch (latestEventType)
+                    {
+                        case EventType.Waiting:
+                            ToastService.ShowInfo("Payment session is active and waiting for cash.");
+                            break;
+                        case EventType.PaymentComplete:
+                            return true;
+                        case EventType.CancelComplete:
+                            ToastService.ShowWarning("Payment was canceled.");
+                            isPaymentSelected = false;
+                            return false;
+                        case EventType.StoppingPayment:
+                            ToastService.ShowWarning("Payment is stopping...");
+                            break;
+                        case EventType.Idle:
+                            isPaymentSelected = false;
+                            return false;
+                        default:
+                            ToastService.ShowInfo($"Payment in progress... Current status: {latestEventType}");
+                            break;
+                    }
+                }
+            }
+
+            await Task.Delay(3000);
         }
     }
 
@@ -982,7 +1150,7 @@ else
         isCancellingPayment = true;
         try
         {
-            // Handle card payment cancellation differently
+            // Handle card / split (scanner) cancellation without hitting cash device API
             if (selectedPaymentMethod == PaymentMethod.Card)
             {
                 ToastService.ShowInfo("Cancelling card payment...");
@@ -997,6 +1165,24 @@ else
                 ToastService.ShowSuccess("Card payment cancelled successfully!");
                 LogScannerEvent("Card payment cancellation completed.");
                 isPaymentSelected = false; // Reset payment selection
+                return;
+            }
+
+            if (selectedPaymentMethod == PaymentMethod.Split)
+            {
+                ToastService.ShowInfo("Cancelling split payment...");
+                if (scannerIsOpen)
+                {
+                    scannerIsOpen = false;
+                }
+
+                var splitCancelResult = await ApiClient.CancelPaymentSafely();
+                if (splitCancelResult.Success)
+                    ToastService.ShowSuccess(splitCancelResult.Message);
+                else
+                    ToastService.ShowWarning(splitCancelResult.Message);
+
+                isPaymentSelected = false;
                 return;
             }
 
@@ -1212,7 +1398,9 @@ else
         invoiceDto.Subtotal = finalAmount; // Subtotal is the amount after discounts
         invoiceDto.TaxAmount = 0m; // Tax removed from invoice
         invoiceDto.TotalAmount = finalAmount; // Total equals payable amount
-        invoiceDto.PaymentMethod = selectedPaymentMethod.ToString();
+        invoiceDto.PaymentMethod = selectedPaymentMethod == PaymentMethod.Split
+            ? $"Split: {splitCashAmount:C} cash + {GetSplitCardAmount():C} card"
+            : selectedPaymentMethod.ToString();
         invoiceDto.InvoiceNumber = $"INV-{DateTime.Now:yyyy-MM-dd-HHmmss}";
         invoiceDto.InvoiceDate = DateTime.Now;
         

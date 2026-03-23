@@ -1,3 +1,22 @@
+/* Softer overlay behind checkout (less harsh than default dark scrim) */
+.popup-backdrop.popup-backdrop-soft {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(4px);
+}
+
+/* Checkout shell: see Components/Shared/Popup.razor.css (.popup.popup-checkout) */
+
+.checkout-popup-inner {
+    background: transparent;
+    color: #212529;
+    border-radius: 0;
+    padding: 0.5rem 1rem 0.75rem;
+    overflow-y: auto;
+    max-height: min(calc(90vh - 72px), 560px);
+    width: 100%;
+    text-align: center;
+}
+
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }

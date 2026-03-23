@@ -1,4 +1,4 @@
-﻿namespace CarWashApp.Models
+namespace CarWashApp.Models
 {
     public class Transaction
     {
@@ -13,6 +13,8 @@
     {
         Cash,
         Card,
+        /// <summary>Part cash + part card in one sale (e.g. £30 cash + £20 card).</summary>
+        Split,
         Other
     }
 }

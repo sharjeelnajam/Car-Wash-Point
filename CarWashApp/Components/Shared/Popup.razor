@@ -1,8 +1,8 @@
-﻿@if (IsOpen)
+@if (IsOpen)
 {
-    <div class="popup-backdrop" @onclick="OnBackdropClick"></div>
+    <div class="popup-backdrop @(BackdropCssClass ?? string.Empty)" @onclick="OnBackdropClick"></div>
 
-    <div class="popup" role="dialog" aria-modal="true">
+    <div class="popup @(CssClass ?? string.Empty)" role="dialog" aria-modal="true">
         <button class="popup-close" @onclick="Close" aria-label="Close">×</button>
 
         @if (!string.IsNullOrWhiteSpace(Title))
@@ -31,6 +31,12 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public RenderFragment? FooterContent { get; set; }
     [Parameter] public bool CloseOnBackdropClick { get; set; } = true;
+
+    /// <summary>Optional extra class on the dialog root (e.g. <c>popup-checkout</c> for compact checkout).</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    /// <summary>Optional class on the dimmed overlay (e.g. lighter tint for checkout).</summary>
+    [Parameter] public string? BackdropCssClass { get; set; }
 
     private async Task Close()
     {

@@ -80,6 +80,11 @@
                                                             <i class="bi bi-credit-card me-1"></i>Card
                                                         </span>
                                                         break;
+                                                    case PaymentMethod.Split:
+                                                        <span class="badge bg-warning text-dark">
+                                                            <i class="bi bi-cash-stack me-1"></i>Split
+                                                        </span>
+                                                        break;
                                                     case PaymentMethod.Other:
                                                         <span class="badge bg-secondary">
                                                             <i class="bi bi-question-circle me-1"></i>Other
@@ -144,6 +149,16 @@
                                     <i class="bi bi-gift me-2"></i>Free Washes
                                 </h5>
                                 <h3>@transactions.Count(t => t.Amount == 0)</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mt-3 mt-md-0">
+                        <div class="card border-warning">
+                            <div class="card-body text-center">
+                                <h5 class="card-title text-dark">
+                                    <i class="bi bi-cash-stack me-2"></i>Split Payments
+                                </h5>
+                                <h3>@transactions.Count(t => t.PaymentMethod == PaymentMethod.Split)</h3>
                             </div>
                         </div>
                     </div>
@@ -219,6 +234,11 @@
                                         case PaymentMethod.Card:
                                             <span class="badge bg-info fs-6">
                                                 <i class="bi bi-credit-card me-1"></i>Card Payment
+                                            </span>
+                                            break;
+                                        case PaymentMethod.Split:
+                                            <span class="badge bg-warning text-dark fs-6">
+                                                <i class="bi bi-cash-stack me-1"></i>Split (cash + card)
                                             </span>
                                             break;
                                         case PaymentMethod.Other:
