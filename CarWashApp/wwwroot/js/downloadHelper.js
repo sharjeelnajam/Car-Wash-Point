@@ -36,8 +36,11 @@ window.printPdfHelper = (base64Data) => {
     const printWindow = window.open(blobUrl, "_blank");
     if (!printWindow) return;
 
-    printWindow.addEventListener("load", () => {
-        printWindow.focus();
-        printWindow.print();
-    });
+    // PDF built-in viewers often don't fire window "load" reliably; delay print once.
+    setTimeout(() => {
+        try {
+            printWindow.focus();
+            printWindow.print();
+        } catch (e) { /* ignore */ }
+    }, 900);
 };
