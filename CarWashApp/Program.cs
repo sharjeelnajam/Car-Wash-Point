@@ -347,10 +347,17 @@ builder.Services.AddHttpClient<CWPClient>((sp, c) =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(options =>
     {
-        options.DetailedErrors = true;   // <-- turn on while debugging
+        options.DetailedErrors = builder.Environment.IsDevelopment();
     });
 
 var app = builder.Build();
+
+// Apply pending EF Core migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<CarWashAppDbContext>();
+    db.Database.Migrate();
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -371,7 +378,7 @@ app.MapRazorComponents<App>()
 // Stream invoice files directly without loading into Blazor circuit
 app.MapGet("/invoices/{fileName}", (string fileName, IConfiguration config) =>
 {
-    var root = config["InvoicePath"];
+    var root = CarWashApp.Services.InvoicePaths.Resolve(config);
     if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
     {
         return Results.NotFound();

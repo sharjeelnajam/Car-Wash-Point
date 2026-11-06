@@ -30,6 +30,50 @@
             }
             else if (transactions.Any())
             {
+                <!-- Summary Cards -->
+                <div class="row g-2 mb-3">
+                    <div class="col-6 col-md">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body text-center py-2 px-1">
+                                <div class="small"><i class="bi bi-cash-coin me-1"></i>Cash</div>
+                                <div class="fw-bold fs-5">@transactions.Count(t => t.PaymentMethod == PaymentMethod.Cash)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center py-2 px-1">
+                                <div class="small"><i class="bi bi-credit-card me-1"></i>Card</div>
+                                <div class="fw-bold fs-5">@transactions.Count(t => t.PaymentMethod == PaymentMethod.Card)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md">
+                        <div class="card border-warning">
+                            <div class="card-body text-center py-2 px-1">
+                                <div class="small text-dark"><i class="bi bi-cash-stack me-1"></i>Split</div>
+                                <div class="fw-bold fs-5">@transactions.Count(t => t.PaymentMethod == PaymentMethod.Split)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md">
+                        <div class="card bg-warning text-dark">
+                            <div class="card-body text-center py-2 px-1">
+                                <div class="small"><i class="bi bi-gift me-1"></i>Free washes</div>
+                                <div class="fw-bold fs-5">@transactions.Count(t => t.Amount == 0)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center py-2 px-1">
+                                <div class="small"><i class="bi bi-currency-dollar me-1"></i>Total revenue</div>
+                                <div class="fw-bold fs-5">$@transactions.Where(t => t.Amount > 0).Sum(t => t.Amount).ToString("F2")</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -37,10 +81,10 @@
     <thead class="table-primary">
         <tr>
                                         <th><i class="bi bi-hash me-1"></i>ID</th>
-                                        <th><i class="bi bi-calendar-event me-1"></i>Date & Time</th>
+                                        <th><i class="bi bi-car-front me-1"></i>Car Reg. No.</th>
                                         <th><i class="bi bi-currency-dollar me-1"></i>Amount</th>
                                         <th><i class="bi bi-credit-card me-1"></i>Payment Method</th>
-                                        <th><i class="bi bi-file-text me-1"></i>Description</th>
+                                        <th><i class="bi bi-calendar-event me-1"></i>Date & Time</th>
                                         <th class="text-center"><i class="bi bi-eye me-1"></i>Details</th>
         </tr>
     </thead>
@@ -52,10 +96,10 @@
                                                 <span class="badge bg-secondary">#@transaction.Id</span>
                                             </td>
                                             <td>
-                                                <div class="d-flex flex-column">
-                                                    <span class="fw-medium">@transaction.Date.ToString("MMM dd, yyyy")</span>
-                                                    <small class="text-muted">@transaction.Date.ToString("HH:mm:ss")</small>
-                                                </div>
+                                                @{
+                                                    var plate = ExtractCarInfoFromDescription(transaction.Description).LicensePlate;
+                                                }
+                                                <span class="fw-medium">@(string.IsNullOrWhiteSpace(plate) ? "-" : plate)</span>
                                             </td>
                                             <td>
                                                 @if (transaction.Amount > 0)
@@ -93,8 +137,9 @@
                                                 }
                                             </td>
                                             <td>
-                                                <div class="text-wrap" style="max-width: 300px;">
-                                                    @transaction.Description
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-medium">@transaction.Date.ToString("MMM dd, yyyy")</span>
+                                                    <small class="text-muted">@transaction.Date.ToString("HH:mm:ss")</small>
                                                 </div>
                                             </td>
                                             <td class="text-center">
@@ -110,59 +155,6 @@
                     </div>
                 </div>
 
-                <!-- Summary Cards -->
-                <div class="row mt-4">
-                    <div class="col-md-3">
-                        <div class="card bg-primary text-white">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">
-                                    <i class="bi bi-cash-coin me-2"></i>Cash Payments
-                                </h5>
-                                <h3>@transactions.Count(t => t.PaymentMethod == PaymentMethod.Cash)</h3>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-info text-white">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">
-                                    <i class="bi bi-credit-card me-2"></i>Card Payments
-                                </h5>
-                                <h3>@transactions.Count(t => t.PaymentMethod == PaymentMethod.Card)</h3>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-success text-white">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">
-                                    <i class="bi bi-currency-dollar me-2"></i>Total Revenue
-                                </h5>
-                                <h3>$@transactions.Where(t => t.Amount > 0).Sum(t => t.Amount).ToString("F2")</h3>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-warning text-dark">
-                            <div class="card-body text-center">
-                                <h5 class="card-title">
-                                    <i class="bi bi-gift me-2"></i>Free Washes
-                                </h5>
-                                <h3>@transactions.Count(t => t.Amount == 0)</h3>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mt-3 mt-md-0">
-                        <div class="card border-warning">
-                            <div class="card-body text-center">
-                                <h5 class="card-title text-dark">
-                                    <i class="bi bi-cash-stack me-2"></i>Split Payments
-                                </h5>
-                                <h3>@transactions.Count(t => t.PaymentMethod == PaymentMethod.Split)</h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             }
             else
             {

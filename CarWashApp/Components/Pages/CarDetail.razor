@@ -34,12 +34,15 @@ else
 
     private CarDto car;
 
+    private static string Squash(string? plate) =>
+        (plate ?? string.Empty).Where(ch => !char.IsWhiteSpace(ch)).Aggregate("", (a, ch) => a + ch).ToUpperInvariant();
+
     protected override void OnInitialized()
     {
         try
         {
             // Load car by license plate
-            car = CarService.GetAllCars().Find(car => car.LicensePlate == licensePlate);
+            car = CarService.GetAllCars().Find(car => Squash(car.LicensePlate) == Squash(licensePlate));
         }
         catch (Exception ex)
         {

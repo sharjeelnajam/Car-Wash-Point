@@ -1,0 +1,62 @@
+@page "/registered-cars"
+@using CarWashApp.Models.DTOs
+@using CarWashApp.Services
+@inject ICarService CarService
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Registered Cars</PageTitle>
+
+@if (!AuthService.IsAuthenticated)
+{
+    <div class="alert alert-warning">
+        You need to be logged in as an administrator to view this page.
+        <button class="btn btn-primary btn-sm ms-2" @onclick='() => Navigation.NavigateTo("/admin-login")'>Admin Login</button>
+    </div>
+    return;
+}
+
+<h3>Registered Cars (@cars.Count)</h3>
+
+<input class="form-control mb-3" placeholder="Search plate, name or colour" @bind="search" @bind:event="oninput" />
+
+<table class="table table-sm table-bordered table-striped">
+    <thead class="table-primary">
+        <tr><th>Plate</th><th>Vehicle</th><th>Colour</th><th class="text-end">Loyalty points</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var c in Filtered())
+        {
+            <tr>
+                <td>@c.LicensePlate</td>
+                <td>@c.Name</td>
+                <td>@c.Color</td>
+                <td class="text-end">@c.LoyaltyPoints</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<CarDto> cars = new();
+    private string search = "";
+
+    protected override void OnInitialized()
+    {
+        if (AuthService.IsAuthenticated)
+            cars = CarService.GetAllCars().OrderBy(c => c.LicensePlate).ToList();
+    }
+
+    private static string Squash(string? s) =>
+        new string((s ?? "").Where(ch => !char.IsWhiteSpace(ch)).ToArray());
+
+    private IEnumerable<CarDto> Filtered()
+    {
+        var q = Squash(search);
+        if (q.Length == 0) return cars;
+        return cars.Where(c =>
+            Squash(c.LicensePlate).Contains(q, StringComparison.OrdinalIgnoreCase) ||
+            Squash(c.Name).Contains(q, StringComparison.OrdinalIgnoreCase) ||
+            Squash(c.Color).Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+}

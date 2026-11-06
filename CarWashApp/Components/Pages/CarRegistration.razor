@@ -60,7 +60,7 @@
     {
         // You can save to database or call an API here
         Console.WriteLine($"Car Registered: {car.LicensePlate} - {car.Name}");
-        CarService.AddCar(car); // Assuming DummyCars is a static class managing car data
+        CarService.AddCar(car);
         NavigationManager.NavigateTo($"car-detail/{car.LicensePlate}"); // Navigate to car list or confirmation
     }
     private async Task GoBack()

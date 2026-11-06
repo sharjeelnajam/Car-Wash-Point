@@ -69,3 +69,8 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* Keep toasts above the checkout popup and its backdrop (z-index 1000/1001) */
+.blazored-toast-container {
+    z-index: 2000 !important;
+}

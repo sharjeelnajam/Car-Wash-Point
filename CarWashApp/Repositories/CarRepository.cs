@@ -41,7 +41,14 @@ namespace CarWashApp.Repositories
 
         public Car GetCarByLicensePlate(string licensePlate)
         {
-            return context.Cars.FirstOrDefault(c => c.LicensePlate == licensePlate);
+            // Ignore any whitespace and case so "AB12 CDE" matches "AB12CDE".
+            var plate = Normalize(licensePlate);
+            return context.Cars.AsEnumerable().FirstOrDefault(c => Normalize(c.LicensePlate) == plate);
+        }
+
+        private static string Normalize(string? plate)
+        {
+            return new string((plate ?? string.Empty).Where(ch => !char.IsWhiteSpace(ch)).ToArray()).ToUpperInvariant();
         }
 
         public void UpdateCar(Car car)

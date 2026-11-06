@@ -55,6 +55,7 @@
         <p class="text-muted small text-uppercase mb-1" style="letter-spacing: .04em;">Total to pay</p>
         <div class="mb-2">
             <InputNumber @bind-Value="CarWashCharges"
+                         readonly="@(!IsAmountEditable)"
                          type="number"
                          step="0.01"
                          class="form-control form-control-lg text-center fw-bold py-2"
@@ -231,6 +232,7 @@
                             <p class="mb-3">Enter the amount for your car wash service:</p>
                             <div class="mb-3">
                                 <InputNumber @bind-Value="CarWashCharges"
+                         readonly="@(!IsAmountEditable)"
                                            type="number"
                                            step="0.01"
                                            class="form-control form-control-lg text-center"
@@ -339,7 +341,7 @@
     </div>
 
 <Popup IsOpen="@showInvoicePopup"
-       IsOpenChanged="@((bool isOpen) => showInvoicePopup = isOpen)"
+       IsOpenChanged="@((bool isOpen) => { if (!isOpen) return CloseInvoicePopup(); showInvoicePopup = true; return Task.CompletedTask; })"
        Title="Invoice - Payment Complete"
        CloseOnBackdropClick="true">
     <div class="text-center">
@@ -420,6 +422,11 @@
     // Scanner state tracking
     private bool scannerIsOpen = false;
     private bool isOpeningScanner = false;
+
+    // Only the Van + Super Glaze Valet amount may be changed; every other price is fixed.
+    private bool IsAmountEditable =>
+        selectedVehicle?.WashPackage == "super_glaze_valet" &&
+        string.Equals(selectedVehicle.Title, "Van", StringComparison.OrdinalIgnoreCase);
 
     decimal CarWashCharges
     {
@@ -577,8 +584,9 @@
             if (selectedPaymentMethod == PaymentMethod.Card)
             {
                 LogScannerEvent("Card payment detected. Initiating capture workflow.");
-                // await ProcessCardPayment();
-                await TestCapture();
+                // Once the scan succeeds, record the sale, close checkout and show the invoice.
+                if (await TestCapture())
+                    await ProcessCardPayment();
                 return;
             }
 
@@ -598,7 +606,8 @@
                     return;
 
                 ToastService.ShowInfo($"Cash received. Step 2/2: Take {cardPart:C} on card, then capture (Scan).");
-                await TestCapture();
+                if (!await TestCapture())
+                    return;
 
                 var splitDescription = redemptionType switch
                 {
@@ -725,41 +734,83 @@
     /// <summary>Poll payment device after a cash session has already been started.</summary>
     private async Task<bool> PollCashPaymentUntilTerminalAsync()
     {
-        while (true)
+        var deadline = DateTime.UtcNow.AddMinutes(5);
+        string? lastLogged = null;
+        string? lastToasted = null;
+
+        while (DateTime.UtcNow < deadline)
         {
             var status = await ApiClient.CheckPaymentStatus();
             var latestEvent = status?.Events?.LastOrDefault();
 
             if (latestEvent != null)
             {
+                // Log every change reported by the cash machine so a stuck payment can be diagnosed.
+                var summary = $"{latestEvent.EventType} | error='{latestEvent.ErrorCondition}' value={latestEvent.Value} " +
+                              $"cashIn={latestEvent.Transaction?.CashIn} cashOut={latestEvent.Transaction?.CashOut} " +
+                              $"requested={latestEvent.Transaction?.RequestAmount}";
+                if (summary != lastLogged)
+                {
+                    LogScannerEvent($"Cash status event: {summary}");
+                    lastLogged = summary;
+                }
+
                 if (Enum.TryParse(latestEvent.EventType, out EventType latestEventType))
                 {
                     switch (latestEventType)
                     {
-                        case EventType.Waiting:
-                            ToastService.ShowInfo("Payment session is active and waiting for cash.");
-                            break;
                         case EventType.PaymentComplete:
                             return true;
+
+                        case EventType.InsufficientFloat:
+                        case EventType.PayoutFailed:
+                        case EventType.PayOutError:
+                            // The customer has paid; the machine could not hand back all the change.
+                            var owed = (latestEvent.Transaction?.CashIn ?? 0) - (latestEvent.Transaction?.RequestAmount ?? 0)
+                                       - (latestEvent.Transaction?.CashOut ?? 0);
+                            var owedText = owed > 0 ? $" About {(owed / 100m):C} of change is still owed." : "";
+                            ToastService.ShowError($"The machine could not pay out all the change ({latestEventType}).{owedText} Please call staff.");
+                            return true;
+
                         case EventType.CancelComplete:
+                        case EventType.StopComplete:
+                        case EventType.StopCancelled:
                             ToastService.ShowWarning("Payment was canceled.");
                             isPaymentSelected = false;
                             return false;
-                        case EventType.StoppingPayment:
-                            ToastService.ShowWarning("Payment is stopping...");
-                            break;
+
+                        case EventType.BillOutOfService:
+                        case EventType.CoinOutOfService:
+                        case EventType.BillCoinOutOfService:
+                            ToastService.ShowError($"Cash machine problem: {latestEventType}. Please call staff.");
+                            isPaymentSelected = false;
+                            return false;
+
                         case EventType.Idle:
                             isPaymentSelected = false;
                             return false;
+
                         default:
-                            ToastService.ShowInfo($"Payment in progress... Current status: {latestEventType}");
+                            // Only show a toast when the status changes, not every poll.
+                            if (latestEvent.EventType != lastToasted)
+                            {
+                                ToastService.ShowInfo(latestEventType == EventType.Waiting
+                                    ? "Payment session is active and waiting for cash."
+                                    : $"Payment in progress... Current status: {latestEventType}");
+                                lastToasted = latestEvent.EventType;
+                            }
                             break;
                     }
                 }
             }
 
-            await Task.Delay(3000);
+            await Task.Delay(2000);
         }
+
+        LogScannerEvent("Cash payment polling timed out after 5 minutes.");
+        ToastService.ShowError("Payment timed out. Please check the cash machine or call staff.");
+        isPaymentSelected = false;
+        return false;
     }
 
     private async Task EnsureNoActiveSessionForNewPayment()
@@ -820,12 +871,12 @@
     [Inject] IConfiguration Configuration { get; set; }
     [Inject] ScannerService ScannerService { get; set; }
 
-    private async Task TestCapture()
+    private async Task<bool> TestCapture()
     {
         try
         {
             LogScannerEvent("TestCapture invoked.");
-            var invoiceFolderPath = Configuration["InvoicePath"];
+            var invoiceFolderPath = InvoicePaths.Resolve(Configuration);
 
             if (string.IsNullOrWhiteSpace(invoiceFolderPath))
             {
@@ -860,16 +911,19 @@
 
                 ToastService.ShowSuccess("Capture image");
                 LogScannerEvent("Capture succeeded.");
+                return true;
             }
             else
             {
                 ToastService.ShowError("Capture Failed ❌");
                 LogScannerEvent("Capture failed.");
+                return false;
             }
         }
         catch (Exception ex)
         {
             ToastService.ShowError("Error: " + ex.Message);
+            return false;
         }
     }
     async Task CaptureImage()
@@ -879,7 +933,7 @@
 
         try
         {
-            var invoiceFolderPath = Configuration["InvoicePath"];
+            var invoiceFolderPath = InvoicePaths.Resolve(Configuration);
             LogScannerEvent($"InvoicePath from configuration: '{invoiceFolderPath ?? "null"}'.");
 
             if (string.IsNullOrWhiteSpace(invoiceFolderPath))
@@ -1023,7 +1077,7 @@
 
     private async Task RetryCapture()
     {
-        var invoiceFolderPath = Configuration["InvoicePath"];
+        var invoiceFolderPath = InvoicePaths.Resolve(Configuration);
         var file = Path.Combine(invoiceFolderPath, LastCapturedImage);
         try
         {
@@ -1268,6 +1322,8 @@
         showInvoicePopup = false;
         await Task.Yield();
         StateHasChanged();
+        // Payment is finished: go back to the Home page for the next customer.
+        NavigationManager.NavigateTo("/");
     }
 
     private string GetWashPackageName(string packageId)

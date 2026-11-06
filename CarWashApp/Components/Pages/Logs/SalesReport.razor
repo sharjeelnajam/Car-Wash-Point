@@ -1,0 +1,120 @@
+@page "/sales-report"
+@using System.Text
+@using CarWashApp.Models
+@using CarWashApp.Services
+@inject ITransactionService TransactionService
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Sales Report</PageTitle>
+
+@if (!AuthService.IsAuthenticated)
+{
+    <div class="alert alert-warning">
+        You need to be logged in as an administrator to view this page.
+        <button class="btn btn-primary btn-sm ms-2" @onclick='() => Navigation.NavigateTo("/admin-login")'>Admin Login</button>
+    </div>
+    return;
+}
+
+<h3>Sales Report</h3>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">From</label>
+                <input type="datetime-local" class="form-control" @bind="from" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">To</label>
+                <input type="datetime-local" class="form-control" @bind="to" />
+            </div>
+            <div class="col-md-6">
+                <button class="btn btn-primary me-2" @onclick="Load">Show</button>
+                <button class="btn btn-success" @onclick="ExportCsv" disabled="@(!rows.Any())">Export CSV</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!loaded)
+{
+    <p class="text-muted">Choose a date and time range and click Show.</p>
+    return;
+}
+
+<p class="text-muted">Showing sales from @from.ToString("dd MMM yyyy HH:mm") to @to.ToString("dd MMM yyyy HH:mm")</p>
+
+<div class="row mb-3">
+    <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Total sales</div><h4>@rows.Sum(r => r.Amount).ToString("C")</h4></div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Cash</div><h4>@Sum(PaymentMethod.Cash).ToString("C")</h4></div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Card</div><h4>@Sum(PaymentMethod.Card).ToString("C")</h4></div></div></div>
+    <div class="col-md-3"><div class="card"><div class="card-body"><div class="text-muted">Washes</div><h4>@rows.Count</h4></div></div></div>
+</div>
+
+<table class="table table-sm table-bordered table-striped">
+    <thead class="table-primary">
+        <tr><th>Date &amp; time</th><th>Method</th><th class="text-end">Amount</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var r in rows)
+        {
+            <tr>
+                <td>@r.Local.ToString("dd MMM yyyy HH:mm:ss")</td>
+                <td>@r.Method</td>
+                <td class="text-end">@r.Amount.ToString("C")</td>
+                <td>@r.Description</td>
+            </tr>
+        }
+        @if (!rows.Any())
+        {
+            <tr><td colspan="4" class="text-center text-muted">No transactions in this range.</td></tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private record Row(DateTime Local, PaymentMethod Method, decimal Amount, string Description);
+
+    private DateTime from = DateTime.Today;
+    private DateTime to = DateTime.Today.AddDays(1).AddMinutes(-1);
+    private bool loaded;
+    private List<Row> rows = new();
+
+    // Show today's transactions straight away; the range can be changed afterwards.
+    protected override void OnInitialized()
+    {
+        if (AuthService.IsAuthenticated)
+            Load();
+    }
+
+    private void Load()
+    {
+        // Transactions are stored in UTC; the report works in the PC's local time.
+        rows = TransactionService.GetAllTransactions()
+            .Select(t => new Row(DateTime.SpecifyKind(t.Date, DateTimeKind.Utc).ToLocalTime(), t.PaymentMethod, t.Amount, t.Description ?? ""))
+            .Where(r => r.Local >= from && r.Local <= to)
+            .OrderBy(r => r.Local)
+            .ToList();
+        loaded = true;
+    }
+
+    private decimal Sum(PaymentMethod method) => rows.Where(r => r.Method == method).Sum(r => r.Amount);
+
+    private static string Csv(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
+
+    private async Task ExportCsv()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Date time,Method,Amount,Description");
+        foreach (var r in rows)
+            sb.AppendLine($"{r.Local:yyyy-MM-dd HH:mm:ss},{r.Method},{r.Amount},{Csv(r.Description)}");
+        sb.AppendLine($"Total,,{rows.Sum(r => r.Amount)},");
+
+        var base64 = Convert.ToBase64String(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray());
+        await JS.InvokeVoidAsync("eval",
+            $"(()=>{{const a=document.createElement('a');a.href='data:text/csv;base64,{base64}';a.download='sales-{from:yyyyMMdd-HHmm}-{to:yyyyMMdd-HHmm}.csv';a.click();}})()");
+    }
+}
