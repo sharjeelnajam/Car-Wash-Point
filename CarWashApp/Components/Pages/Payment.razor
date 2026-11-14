@@ -340,6 +340,29 @@
         </div>
     </div>
 
+<Popup IsOpen="@showChangePopup"
+       IsOpenChanged="@((bool isOpen) => showChangePopup = isOpen)"
+       Title="Change not available"
+       CloseOnBackdropClick="false">
+    <div class="text-center">
+        <p class="lead mb-2">The machine could not give back your change.</p>
+        @if (changeOwed > 0)
+        {
+            <p class="fw-bold fs-4 text-danger mb-2">Change owed: @changeOwed.ToString("C")</p>
+        }
+        <p class="text-muted">Please ask a member of staff to hand you your change.</p>
+
+        <div class="d-flex flex-column gap-3 align-items-center mt-3">
+            <button @onclick="ShowInvoiceAfterChangeProblem" class="btn btn-primary btn-lg w-75">
+                <i class="bi bi-receipt me-2"></i>View invoice
+            </button>
+            <button @onclick="CancelAndGoHome" class="btn btn-secondary w-75">
+                <i class="bi bi-house me-2"></i>Cancel and go to Home
+            </button>
+        </div>
+    </div>
+</Popup>
+
 <Popup IsOpen="@showInvoicePopup"
        IsOpenChanged="@((bool isOpen) => { if (!isOpen) return CloseInvoicePopup(); showInvoicePopup = true; return Task.CompletedTask; })"
        Title="Invoice - Payment Complete"
@@ -412,6 +435,8 @@
     bool isProcessingPayment = false;
     bool isCancellingPayment = false;
     bool showInvoicePopup = false;
+    bool showChangePopup = false;
+    decimal changeOwed;
     private decimal carWashCharges;
     private CarDto selectedCar;
     private VehicleType selectedVehicle;
@@ -575,6 +600,7 @@
         }
 
         isProcessingPayment = true;
+        showChangePopup = false;
         try
         {
             // Always close any active session before starting a new payment.
@@ -627,7 +653,7 @@
                 await HandleLoyaltyPoints();
                 UpdateInvoiceData();
                 pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
-                showInvoicePopup = true;
+                showInvoicePopup = !showChangePopup;
                 isPaymentSelected = false;
                 StateHasChanged();
                 ToastService.ShowSuccess("Split payment completed.");
@@ -670,7 +696,7 @@
                     await HandleLoyaltyPoints();
                     UpdateInvoiceData();
                     pdfBytes = await InvoiceService.GenerateInvoice(invoiceDto);
-                    showInvoicePopup = true;
+                    showInvoicePopup = !showChangePopup;
                     isPaymentSelected = false;
                     StateHasChanged();
                 }
@@ -769,7 +795,10 @@
                             var owed = (latestEvent.Transaction?.CashIn ?? 0) - (latestEvent.Transaction?.RequestAmount ?? 0)
                                        - (latestEvent.Transaction?.CashOut ?? 0);
                             var owedText = owed > 0 ? $" About {(owed / 100m):C} of change is still owed." : "";
-                            ToastService.ShowError($"The machine could not pay out all the change ({latestEventType}).{owedText} Please call staff.");
+                            LogScannerEvent($"Change payout problem ({latestEventType}).{owedText}");
+                            changeOwed = owed > 0 ? owed / 100m : 0m;
+                            showChangePopup = true;
+                            StateHasChanged();
                             return true;
 
                         case EventType.CancelComplete:
@@ -1315,6 +1344,28 @@
             string base64 = Convert.ToBase64String(pdfBytes);
             await JS.InvokeVoidAsync("printPdfHelper", base64);
         }
+    }
+
+    private void ShowInvoiceAfterChangeProblem()
+    {
+        showChangePopup = false;
+        showInvoicePopup = pdfBytes != null;
+    }
+
+    private async Task CancelAndGoHome()
+    {
+        showChangePopup = false;
+        try
+        {
+            // Close the machine's payment session so the next customer starts clean.
+            await ApiClient.CloseSession();
+        }
+        catch (Exception ex)
+        {
+            LogScannerEvent("CloseSession after change problem failed.", ex);
+        }
+
+        NavigationManager.NavigateTo("/");
     }
 
     private async Task CloseInvoicePopup()

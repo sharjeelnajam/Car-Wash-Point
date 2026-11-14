@@ -196,7 +196,7 @@ namespace CarWashApp.Services
                                                 .FontSize(12)
                                                 .Bold();
                                             subtotalRow.ConstantItem(80).AlignRight()
-                                                .Text($"${invoiceData.Subtotal:F2}")
+                                                .Text($"£{invoiceData.Subtotal:F2}")
                                                 .FontSize(12)
                                                 .Bold();
                                         });

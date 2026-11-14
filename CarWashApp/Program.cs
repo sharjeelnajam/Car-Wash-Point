@@ -352,11 +352,28 @@ builder.Services.AddRazorComponents()
 
 var app = builder.Build();
 
-// Apply pending EF Core migrations on startup
+// Create the database if it does not exist, then apply pending EF Core migrations on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CarWashAppDbContext>();
-    db.Database.Migrate();
+    var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        var existed = db.Database.CanConnect();
+        startupLogger.LogInformation(existed
+            ? "Database found. Applying any pending migrations."
+            : "Database not found. Creating it and applying migrations.");
+
+        // Migrate() creates the database when it is missing, then builds/updates the tables.
+        db.Database.Migrate();
+        startupLogger.LogInformation("Database is ready.");
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogCritical(ex, "Could not create or update the database. Check the connection string and that the SQL login may create databases.");
+        throw;
+    }
 }
 
 // Configure the HTTP request pipeline.
