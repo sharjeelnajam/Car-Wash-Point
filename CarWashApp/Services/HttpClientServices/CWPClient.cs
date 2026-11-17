@@ -1,26 +1,37 @@
-﻿using Microsoft.Extensions.Configuration;
-using System.Net.Http;
-using System.Text.Json;
+﻿using System.Net;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 using CarWashApp.Responses.Status;
+using Microsoft.JSInterop;
 
 namespace CarWashApp.Services.HttpClientServices
 {
-    public class CWPClient
+    /// <summary>
+    /// Talks to the cash machine. The machine is in the shop, so the calls do not go from the server:
+    /// the page sends them through the browser to the helper program on the shop PC, which calls the machine.
+    /// </summary>
+    public class CWPClient(IJSRuntime js)
     {
-        HttpClient client;
-        readonly string username;
-        readonly string password;
+        private sealed record CashReply(int Status, string? Body, string? Error, bool HelperMissing);
 
-        public CWPClient(HttpClient httpClient, IConfiguration configuration)
+        private async Task<HttpResponseMessage> SendAsync(string method, string path, string? json = null)
         {
-            var baseUrl = configuration["Auth:BaseUrl"] ?? throw new ArgumentNullException("Auth:BaseUrl");
-            username = configuration["Auth:Username"] ?? throw new ArgumentNullException("Auth:Username");
-            password = configuration["Auth:Password"] ?? throw new ArgumentNullException("Auth:Password");
-            httpClient.BaseAddress = new Uri(baseUrl);
-            client = httpClient;
+            var reply = await js.InvokeAsync<CashReply>("cashBridge.request", method, path, json);
+
+            if (reply.HelperMissing)
+                throw new InvalidOperationException(reply.Error ?? "The scanner helper is not running on this PC.");
+
+            if (reply.Status == 0)
+                throw new InvalidOperationException(reply.Error ?? "Could not reach the cash machine.");
+
+            return new HttpResponseMessage((HttpStatusCode)reply.Status)
+            {
+                Content = new StringContent(reply.Body ?? "", Encoding.UTF8, "application/json")
+            };
         }
+
+        private Task<HttpResponseMessage> PostSessionAsync(object request) =>
+            SendAsync("POST", "/session", JsonSerializer.Serialize(request));
 
         public async Task<HttpResponseMessage> PayAmount(decimal value)
         {
@@ -34,41 +45,20 @@ namespace CarWashApp.Services.HttpClientServices
                 // Ignore errors when closing session - we'll proceed with new payment
             }
 
-            var requestBody = new
-            {
-                request = "PayAmount",
-                value = Math.Truncate(value)
-            };
-
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync("/session", content);
-            return response;
+            return await PostSessionAsync(new { request = "PayAmount", value = Math.Truncate(value) });
         }
 
         public async Task<StatusResponse> CheckPaymentStatus()
         {
-            // The TokenHandler will add the Authorization header
-            var json = await client.GetAsync("/status?eventVersion=2");
-            var responseString = await json.Content.ReadAsStringAsync();
-            var response = JsonSerializer.Deserialize<StatusResponse>(responseString);
-            return response;
+            var response = await SendAsync("GET", "/status?eventVersion=2");
+            var responseString = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<StatusResponse>(responseString);
         }
 
         public async Task<HttpResponseMessage> CancelPayment()
         {
-            var requestBody = new
-            {
-                request = "CancelPayment"
-            };
+            var response = await PostSessionAsync(new { request = "CancelPayment" });
 
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync("/session", content);
-
-            var message = await response.Content.ReadAsStringAsync();
             // Always try to close session after cancellation attempt
             try
             {
@@ -82,48 +72,14 @@ namespace CarWashApp.Services.HttpClientServices
             return response;
         }
 
-        public async Task<HttpResponseMessage> StopPayment()
-        {
-            var requestBody = new
-            {
-                request = "StopPayment"
-            };
+        public Task<HttpResponseMessage> StopPayment() =>
+            PostSessionAsync(new { request = "StopPayment" });
 
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+        public Task<HttpResponseMessage> RefundAmount(decimal value) =>
+            PostSessionAsync(new { request = "RefundAmount", value = Math.Truncate(value) });
 
-            var response = await client.PostAsync("/session", content);
-            return response;
-        }
-
-        public async Task<HttpResponseMessage> RefundAmount(decimal value)
-        {
-            var requestBody = new
-            {
-                request = "RefundAmount",
-                value = Math.Truncate(value)
-            };
-
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync("/session", content);
-            return response;
-        }
-
-        public async Task<HttpResponseMessage> CloseSession()
-        {
-            var requestBody = new
-            {
-                request = "CloseSession"
-            };
-
-            var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync("/session", content);
-            return response;
-        }
+        public Task<HttpResponseMessage> CloseSession() =>
+            PostSessionAsync(new { request = "CloseSession" });
 
         /// <summary>
         /// Safely starts a new payment by closing any existing session first

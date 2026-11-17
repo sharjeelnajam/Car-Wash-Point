@@ -67,8 +67,8 @@
                     <div class="col-12 col-md">
                         <div class="card bg-success text-white">
                             <div class="card-body text-center py-2 px-1">
-                                <div class="small"><i class="bi bi-currency-dollar me-1"></i>Total revenue</div>
-                                <div class="fw-bold fs-5">$@transactions.Where(t => t.Amount > 0).Sum(t => t.Amount).ToString("F2")</div>
+                                <div class="small"><i class="bi bi-currency-pound me-1"></i>Total revenue</div>
+                                <div class="fw-bold fs-5">£@transactions.Where(t => t.Amount > 0).Sum(t => t.Amount).ToString("F2")</div>
                             </div>
                         </div>
                     </div>
@@ -82,7 +82,7 @@
         <tr>
                                         <th><i class="bi bi-hash me-1"></i>ID</th>
                                         <th><i class="bi bi-car-front me-1"></i>Car Reg. No.</th>
-                                        <th><i class="bi bi-currency-dollar me-1"></i>Amount</th>
+                                        <th><i class="bi bi-currency-pound me-1"></i>Amount</th>
                                         <th><i class="bi bi-credit-card me-1"></i>Payment Method</th>
                                         <th><i class="bi bi-calendar-event me-1"></i>Date & Time</th>
                                         <th class="text-center"><i class="bi bi-eye me-1"></i>Details</th>
@@ -104,7 +104,7 @@
                                             <td>
                                                 @if (transaction.Amount > 0)
                                                 {
-                                                    <span class="badge bg-success fs-6">$@transaction.Amount.ToString("F2")</span>
+                                                    <span class="badge bg-success fs-6">£@transaction.Amount.ToString("F2")</span>
                                                 }
                                                 else
                                                 {
@@ -204,7 +204,7 @@
                                 <div>
                                     @if (selectedTransaction.Amount > 0)
                                     {
-                                        <span class="badge bg-success fs-5">$@selectedTransaction.Amount.ToString("F2")</span>
+                                        <span class="badge bg-success fs-5">£@selectedTransaction.Amount.ToString("F2")</span>
                                     }
                                     else
                                     {

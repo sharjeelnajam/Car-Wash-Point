@@ -1,48 +1,48 @@
-﻿using System.Text;
+﻿using Microsoft.JSInterop;
 
 namespace CarWashApp.Services.Scanner
 {
-    public class ScannerService
+    /// <summary>
+    /// Uses the scanner on the PC where the browser is open. The page talks to the small
+    /// "scanner helper" program running on that PC (see the ScannerHelper project), so this
+    /// works even when the web app itself runs on a server.
+    /// </summary>
+    public class ScannerService(IJSRuntime js)
     {
-        public bool IsScannerConnected()
+        public record HelperReply(
+            bool Ok,
+            bool Connected,
+            int Count,
+            string? Name,
+            bool Open,
+            string? Error,
+            string? ImageBase64,
+            bool HelperMissing);
+
+        private async Task<HelperReply> CallAsync(string function)
         {
-            try
-            {
-                int count = ScannerInterop.GetDeviceCount();
-                return count > 0;
-            }
-            catch
-            {
-                throw;
-            }
+            var reply = await js.InvokeAsync<HelperReply>($"scannerBridge.{function}");
+            if (reply.HelperMissing)
+                throw new InvalidOperationException(reply.Error ?? "The scanner helper is not running on this PC.");
+            return reply;
         }
 
-        public string GetScannerName(int index = 0)
-        {
-            var nameBuffer = new StringBuilder(256);
-            int result = ScannerInterop.GetDeviceName(index, nameBuffer);
-            return result == 0 ? null : nameBuffer.ToString();
-        }
+        public async Task<bool> IsScannerConnectedAsync() => (await CallAsync("status")).Connected;
 
-        public bool OpenScanner(int index = 0)
-        {
-            // 1280x720 is a safe default resolution — can be changed later
-            int result = ScannerInterop.OpenDevice(index, 1280, 720, IntPtr.Zero, false);
-            return result == 0;
-        }
+        public async Task<string?> GetScannerNameAsync() => (await CallAsync("status")).Name;
 
-        public bool CloseScanner()
-        {
-            int result = ScannerInterop.CloseDevice();
-            return result == 0;
-        }
+        public async Task<bool> OpenScannerAsync() => (await CallAsync("open")).Ok;
 
-        public string ScanInvoice(string savePath)
-        {
-            IntPtr pointer = ScannerInterop.CaptureFromPreview(savePath, 1);
-            if (pointer == IntPtr.Zero)
-                return null;
+        public async Task<bool> CloseScannerAsync() => (await CallAsync("close")).Ok;
 
+        /// <summary>Scans on the shop PC and saves the picture to <paramref name="savePath"/> on the server.</summary>
+        public async Task<string?> ScanInvoiceAsync(string savePath)
+        {
+            var reply = await CallAsync("scan");
+            if (!reply.Ok || string.IsNullOrEmpty(reply.ImageBase64))
+                throw new InvalidOperationException(reply.Error ?? "The scanner did not return an image.");
+
+            await File.WriteAllBytesAsync(savePath, Convert.FromBase64String(reply.ImageBase64));
             return savePath;
         }
     }

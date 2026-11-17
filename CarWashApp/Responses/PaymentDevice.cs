@@ -14,7 +14,7 @@ namespace CarWashApp.Responses
         public string PaymentType { get; set; } // "Bills" or "Coins"
 
         [JsonProperty("cashboxValue")]
-        public int CashboxValue { get; set; } // Penny value (e.g., $100 = 10000)
+        public int CashboxValue { get; set; } // Penny value (e.g., £100 = 10000)
 
         [JsonProperty("serialNumber")]
         public string SerialNumber { get; set; }

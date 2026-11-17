@@ -240,7 +240,7 @@
                                            style="font-size: 1.2rem; border-radius: 8px;"
                                            />
                             </div>
-                            <small class="text-muted">Minimum amount: $5.00</small>
+                            <small class="text-muted">Minimum amount: £5.00</small>
                         </div>
                     </div>
                 }
@@ -254,7 +254,7 @@
                         </div>
                         <div class="card-body text-center">
                             <p class="mb-3">You have <strong>@selectedCar.LoyaltyPoints points</strong> available!</p>
-                            <p class="mb-3 text-muted">Amount: <strong>$@carWashCharges.ToString("F2")</strong></p>
+                            <p class="mb-3 text-muted">Amount: <strong>£@carWashCharges.ToString("F2")</strong></p>
                                 <div class="d-flex flex-column gap-3 align-items-center">
                                 @if (selectedCar.LoyaltyPoints >= 5)
                                 {
@@ -265,7 +265,7 @@
                                             style="border-width: 3px;" title="Use 5 points for 50% off">
                                         <i class="bi bi-star me-2"></i>
                                         5 Points = 50% OFF<br>
-                                        <small>Pay $@discountAmount.ToString("F2") instead of $@currentAmount.ToString("F2")</small>
+                                        <small>Pay £@discountAmount.ToString("F2") instead of £@currentAmount.ToString("F2")</small>
                                     </button>
                                 }
                                 
@@ -276,7 +276,7 @@
                                             style="border-width: 3px;" title="Use 10 points for free wash">
                                         <i class="bi bi-gift me-2"></i>
                                         10 Points = FREE WASH<br>
-                                        <small>No payment required! (Was $@carWashCharges.ToString("F2"))</small>
+                                        <small>No payment required! (Was £@carWashCharges.ToString("F2"))</small>
                                     </button>
                                 }
                                 
@@ -927,7 +927,7 @@
             string invoicePath = Path.Combine(invoiceFolderPath, invoiceFileName);
             LogScannerEvent($"Attempting capture to '{invoicePath}'.");
 
-            string? output = ScannerService.ScanInvoice(invoicePath);
+            string? output = await ScannerService.ScanInvoiceAsync(invoicePath);
             LogScannerEvent($"ScannerService.ScanInvoice returned '{output ?? "null"}'.");
 
             if (output != null && File.Exists(output))
@@ -992,12 +992,12 @@
             // string? output = null;
             // try
             // {
-            var output = ScannerService.ScanInvoice(invoicePath);
+            var output = await ScannerService.ScanInvoiceAsync(invoicePath);
             LogScannerEvent($"ScannerService.ScanInvoice output: '{output ?? "null"}'.");
             // }
             // finally
             // {
-            //     bool closed = ScannerService.CloseScanner();
+            //     bool closed = await ScannerService.CloseScannerAsync();
             //     LogScannerEvent($"ScannerService.CloseScanner returned '{closed}'.");
             //     scannerOpened = false;
             // }
@@ -1029,7 +1029,7 @@
             {
                 try
                 {
-                    bool closed = ScannerService.CloseScanner();
+                    bool closed = await ScannerService.CloseScannerAsync();
                     LogScannerEvent($"CaptureImage finalizer close result: '{closed}'.");
                 }
                 catch (Exception ex)
@@ -1138,7 +1138,7 @@
             }
 
             // Check if scanner is connected
-            bool isConnected = ScannerService.IsScannerConnected();
+            bool isConnected = await ScannerService.IsScannerConnectedAsync();
             if (!isConnected)
             {
                 ToastService.ShowError("No scanner device detected. Please connect a scanner and try again.");
@@ -1147,7 +1147,7 @@
             }
 
             LogScannerEvent("Attempting to open scanner...");
-            bool result = ScannerService.OpenScanner();
+            bool result = await ScannerService.OpenScannerAsync();
 
             if (result)
             {
@@ -1164,10 +1164,9 @@
         }
         catch (Exception ex)
         {
-            // If exception occurs, assume scanner is already opened
-            scannerIsOpen = true;
-            ToastService.ShowInfo("Scanner may already be open. Assuming scanner is ready to use.");
-            LogScannerEvent("OpenScanner threw an exception. Assuming scanner is already opened.", ex);
+            // Usually means the scanner helper is not running on this PC.
+            ToastService.ShowError(ex.Message);
+            LogScannerEvent("OpenScanner failed.", ex);
         }
         finally
         {
@@ -1561,7 +1560,7 @@
                 // Show confirmation dialog
                 bool confirmed = await JS.InvokeAsync<bool>("confirm", 
                     $"Are you sure you want to redeem 10 loyalty points for a FREE car wash?\n\n" +
-                    $"Original amount: ${carWashCharges:F2}\n" +
+                    $"Original amount: £{carWashCharges:F2}\n" +
                     $"Points available: {selectedCar.LoyaltyPoints}\n" +
                     $"Points after redemption: {selectedCar.LoyaltyPoints - 10}\n\n" +
                     $"This action cannot be undone.");

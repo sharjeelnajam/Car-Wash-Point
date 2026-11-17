@@ -1,18 +1,114 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject CarWashApp.Services.IAuthenticationService AuthService
+@inject NavigationManager Navigation
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+@if (!initialized)
+{
+    <div class="text-center mt-5 text-muted">Loading...</div>
+}
+else if (!AuthService.IsAuthenticated)
+{
+    <BlazoredToasts Timeout="3" MaxToastCount="2" />
+
+    @* Not signed in: only the login page is shown (everything else redirects to it). *@
+    @if (IsLoginPath(CurrentPath))
+    {
+        @Body
+    }
+}
+else
+{
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
         </div>
 
-        <BlazoredToasts Timeout="3" MaxToastCount="2"/>
+        <main>
+            <div class="top-row px-4">
+                <span class="me-auto text-muted">Signed in as <strong>@AuthService.Username</strong> (@AuthService.Role)</span>
+                <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+            <BlazoredToasts Timeout="3" MaxToastCount="2" />
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+}
+
+@code {
+    private bool initialized;
+
+    // Pages only an admin may open. Staff are sent back to the home page.
+    private static readonly string[] AdminOnlyPaths =
+        { "admin-panel", "admin/invoices", "sales-report", "registered-cars", "transaction-list", "loyalty-system", "staff" };
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        AuthService.AuthenticationStateChanged += OnAuthChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // The login is kept in the browser tab, so restore it after a page refresh.
+        await AuthService.RestoreAsync();
+        initialized = true;
+        Enforce();
+        StateHasChanged();
+    }
+
+    private string CurrentPath =>
+        Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/').ToLowerInvariant();
+
+    private static bool IsLoginPath(string path) => path == "admin-login" || path == "admin";
+
+    private void Enforce()
+    {
+        var path = CurrentPath;
+
+        if (!AuthService.IsAuthenticated)
+        {
+            if (!IsLoginPath(path))
+                Navigation.NavigateTo("admin-login", replace: true);
+            return;
+        }
+
+        if (IsLoginPath(path))
+        {
+            Navigation.NavigateTo("/", replace: true);
+        }
+        else if (!AuthService.IsAdmin && AdminOnlyPaths.Contains(path))
+        {
+            Navigation.NavigateTo("/", replace: true);
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if (!initialized) return;
+        Enforce();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnAuthChanged()
+    {
+        if (!initialized) return;
+        InvokeAsync(() =>
+        {
+            Enforce();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+        AuthService.AuthenticationStateChanged -= OnAuthChanged;
+    }
+}

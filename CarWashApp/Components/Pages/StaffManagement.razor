@@ -1,0 +1,139 @@
+@page "/staff"
+@using CarWashApp.Models
+@using CarWashApp.Services
+@inject StaffService StaffService
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Staff</PageTitle>
+
+@if (!AuthService.IsAdmin)
+{
+    <div class="alert alert-warning">Only an admin can manage staff.</div>
+    return;
+}
+
+<h3><i class="bi bi-people me-2"></i>Staff</h3>
+<p class="text-muted">Add users or change their username, password and role. Inactive users cannot sign in.</p>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageIsError ? "alert-danger" : "alert-success") py-2">@message</div>
+}
+
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">@(editingId == null ? "Add user" : "Edit user")</div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Username</label>
+                <input class="form-control" @bind="username" autocomplete="off" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">@(editingId == null ? "Password" : "New password (leave blank to keep)")</label>
+                <input type="password" class="form-control" @bind="password" autocomplete="new-password" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Role</label>
+                <select class="form-select" @bind="role">
+                    <option value="@StaffRoles.Staff">Staff</option>
+                    <option value="@StaffRoles.Admin">Admin</option>
+                </select>
+            </div>
+            @if (editingId != null)
+            {
+                <div class="col-md-2">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="active" @bind="isActive" />
+                        <label class="form-check-label" for="active">Active</label>
+                    </div>
+                </div>
+            }
+            <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-success" @onclick="Save">@(editingId == null ? "Add" : "Save")</button>
+                @if (editingId != null)
+                {
+                    <button class="btn btn-outline-secondary" @onclick="CancelEdit">Cancel</button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<table class="table table-bordered table-striped">
+    <thead class="table-primary">
+        <tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody>
+        @foreach (var s in users)
+        {
+            <tr>
+                <td>@s.Username @if (s.Id == AuthService.StaffId) { <span class="badge bg-info">you</span> }</td>
+                <td>@s.Role</td>
+                <td>@(s.IsActive ? "Active" : "Inactive")</td>
+                <td>@s.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</td>
+                <td class="text-end"><button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(s)">Edit</button></td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<Staff> users = new();
+    private int? editingId;
+    private string username = "";
+    private string password = "";
+    private string role = StaffRoles.Staff;
+    private bool isActive = true;
+    private string? message;
+    private bool messageIsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAdmin)
+            users = await StaffService.GetAllAsync();
+    }
+
+    private void Edit(Staff s)
+    {
+        editingId = s.Id;
+        username = s.Username;
+        password = "";
+        role = s.Role;
+        isActive = s.IsActive;
+        message = null;
+    }
+
+    private void CancelEdit()
+    {
+        editingId = null;
+        username = "";
+        password = "";
+        role = StaffRoles.Staff;
+        isActive = true;
+    }
+
+    private async Task Save()
+    {
+        string? error;
+        var editingSelf = editingId == AuthService.StaffId;
+
+        if (editingId == null)
+            error = await StaffService.CreateAsync(username, password, role);
+        else
+            error = await StaffService.UpdateAsync(editingId.Value, username, role, isActive, password);
+
+        messageIsError = error != null;
+        message = error ?? (editingId == null ? "User added." : "User saved.");
+
+        if (error == null)
+        {
+            CancelEdit();
+            users = await StaffService.GetAllAsync();
+
+            // The admin edited their own account: pick up the new name / role (or sign out if deactivated).
+            if (editingSelf)
+                await AuthService.RefreshAsync();
+        }
+    }
+}

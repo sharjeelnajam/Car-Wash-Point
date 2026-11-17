@@ -21,11 +21,11 @@ builder.Services.AddScoped<ICarService, CarService>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<StaffService>();
 builder.Services.AddScoped(typeof(InvoiceService));
 builder.Services.AddScoped<ScannerService>();
 builder.Services.AddBlazoredToast();
 
-builder.Services.AddTransient<TokenHandler>();
 
 
 //////// Helper so both clients share the exact same handler logic
@@ -127,82 +127,9 @@ builder.Services.AddTransient<TokenHandler>();
 
 
 
-HttpClientHandler BuildPinnedHandler(IConfiguration cfg)
-{
-    var baseUrl = cfg["Auth:BaseUrl"] ?? throw new ArgumentNullException("Api:BaseUrl");
-    var uri = new Uri(baseUrl, UriKind.Absolute);
-    var allowedHost = uri.Host;
-    var allowedPort = uri.IsDefaultPort ? (int?)null : uri.Port;
-
-    var pinnedThumbprint = (cfg["Auth:PinnedThumbprint"] ?? "")
-        .Replace(" ", "").Replace(":", "").ToUpperInvariant();
-
-    return new HttpClientHandler
-    {
-        ServerCertificateCustomValidationCallback = (req, cert, chain, errors) =>
-        {
-            // Only your configured host[:port]
-            bool hostMatches =
-                string.Equals(req.RequestUri.Host, allowedHost, StringComparison.OrdinalIgnoreCase) &&
-                (!allowedPort.HasValue || req.RequestUri.Port == allowedPort.Value);
-
-            if (hostMatches)
-            {
-                return true; // <--- force trust for your test server
-            }
-
-            if (!hostMatches) return errors == SslPolicyErrors.None; // normal validation elsewhere
-            if (errors == SslPolicyErrors.None) return true;         // already valid
-
-            if (cert is null || string.IsNullOrEmpty(pinnedThumbprint)) return false;
-
-            // Pin **leaf** cert
-            var leaf = cert.GetCertHashString()?.Replace(" ", "").Replace(":", "").ToUpperInvariant();
-            if (!string.Equals(leaf, pinnedThumbprint, StringComparison.Ordinal)) return false;
-
-            // Time validity
-            var now = DateTimeOffset.UtcNow;
-            if (now < cert.NotBefore || now > cert.NotAfter) return false;
-
-            // Allow private/self-signed chain when pinned
-            using var x = new X509Chain
-            {
-                ChainPolicy =
-                {
-                    RevocationMode = X509RevocationMode.NoCheck,
-                    VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority
-                }
-            };
-            if (x.Build(cert)) return true;
-
-            // Accept only typical private CA issues
-            return x.ChainStatus.Length > 0 &&
-                   Array.TrueForAll(x.ChainStatus, s =>
-                       s.Status == X509ChainStatusFlags.UntrustedRoot ||
-                       s.Status == X509ChainStatusFlags.PartialChain ||
-                       s.Status == X509ChainStatusFlags.RevocationStatusUnknown);
-        }
-    };
-}
-
-// Named client for token endpoint (used by TokenHandler)
-builder.Services.AddHttpClient("AuthClient", (sp, c) =>
-{
-    var cfg = sp.GetRequiredService<IConfiguration>();
-    c.BaseAddress = new Uri(cfg["Auth:BaseUrl"]!, UriKind.Absolute);
-    c.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-})
-.ConfigurePrimaryHttpMessageHandler(sp => BuildPinnedHandler(sp.GetRequiredService<IConfiguration>()));
-
-// Your main API client
-builder.Services.AddHttpClient<CWPClient>((sp, c) =>
-{
-    var cfg = sp.GetRequiredService<IConfiguration>();
-    c.BaseAddress = new Uri(cfg["Auth:BaseUrl"]!, UriKind.Absolute);
-    c.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-})
-.ConfigurePrimaryHttpMessageHandler(sp => BuildPinnedHandler(sp.GetRequiredService<IConfiguration>()))
-.AddHttpMessageHandler<TokenHandler>();
+// The cash machine is reached through the scanner helper on the shop PC (via the browser),
+// so the server needs no direct connection or certificate handling for it.
+builder.Services.AddScoped<CWPClient>();
 
 
 
@@ -348,9 +275,20 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(options =>
     {
         options.DetailedErrors = builder.Environment.IsDevelopment();
-    });
+    })
+    // Scanned pictures come back from the shop PC through the browser, so allow bigger messages.
+    .AddHubOptions(options => options.MaximumReceiveMessageSize = 20 * 1024 * 1024);
 
 var app = builder.Build();
+
+// Use UK formatting everywhere so amounts show as £ whatever the server's regional settings are.
+var ukCulture = new System.Globalization.CultureInfo("en-GB");
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = ukCulture;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = ukCulture;
+app.UseRequestLocalization(new Microsoft.AspNetCore.Builder.RequestLocalizationOptions()
+    .SetDefaultCulture("en-GB")
+    .AddSupportedCultures("en-GB")
+    .AddSupportedUICultures("en-GB"));
 
 // Create the database if it does not exist, then apply pending EF Core migrations on startup
 using (var scope = app.Services.CreateScope())
@@ -368,6 +306,9 @@ using (var scope = app.Services.CreateScope())
         // Migrate() creates the database when it is missing, then builds/updates the tables.
         db.Database.Migrate();
         startupLogger.LogInformation("Database is ready.");
+
+        // Default logins (admin / staff) the first time the Staff table is empty.
+        StaffService.SeedAsync(db, builder.Configuration).GetAwaiter().GetResult();
     }
     catch (Exception ex)
     {
