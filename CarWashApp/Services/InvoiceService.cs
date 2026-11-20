@@ -1,305 +1,133 @@
-using QuestPDF.Companion;
 using QuestPDF.Fluent;
-using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using QuestPDF.Previewer;
 
 namespace CarWashApp.Services
 {
-    public class InvoiceService
+    /// <summary>
+    /// Builds the customer receipt as a narrow, centred, typewriter-style PDF (like a card-terminal slip),
+    /// sized for a receipt printer. Width and business details can be changed in appsettings:
+    ///   "Receipt": { "WidthMm": 80, "Name": "DR. WASH", "AddressLine1": "...", "AddressLine2": "...", "Footer": "THANK YOU!" }
+    /// </summary>
+    public class InvoiceService(IConfiguration configuration)
     {
-        public async Task<byte[]> GenerateInvoice(InvoiceDto invoiceDto)
+        private const string FontFamily = "Courier New";
+        private const float FontSize = 9;
+        private const float Margin = 8;
+
+        public Task<byte[]> GenerateInvoice(InvoiceDto invoiceDto)
         {
             QuestPDF.Settings.License = LicenseType.Community;
+            return Task.FromResult(CreateDocument(invoiceDto).GeneratePdf());
+        }
 
-            Console.WriteLine("Generating PDF...");
-            try
+        public IDocument CreateDocument(InvoiceDto invoice)
+        {
+            var widthMm = configuration.GetValue("Receipt:WidthMm", 80);
+            var widthPt = widthMm * 72f / 25.4f;
+
+            // Courier characters are 0.6 of the font size wide, so this is how many fit on one line.
+            var lineChars = (int)Math.Floor((widthPt - 2 * Margin) / (FontSize * 0.6f));
+            var heavyRule = new string('=', lineChars);
+            var lightRule = new string('-', lineChars);
+
+            var name = configuration["Receipt:Name"] ?? "DR. WASH";
+            var address1 = configuration["Receipt:AddressLine1"] ?? "GLASGOW";
+            var address2 = configuration["Receipt:AddressLine2"] ?? "G42 7BH 142 CATHCART ROAD";
+            var footer = configuration["Receipt:Footer"] ?? "THANK YOU!";
+
+            var when = invoice.InvoiceDate == default ? DateTime.Now : invoice.InvoiceDate;
+
+            return Document.Create(container =>
             {
-                // Use the actual invoice data passed to the method
-                var invoiceData = invoiceDto;
-
-                // ✅ Resolve image path under wwwroot/img/
-                var imagePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "img", "invoice-header.WEBP");
-                if (!File.Exists(imagePath))
-                    throw new FileNotFoundException($"Invoice header image not found: {imagePath}");
-
-                return Document.Create(container =>
+                container.Page(page =>
                 {
-                    container.Page(page =>
+                    page.ContinuousSize(widthPt);
+                    page.Margin(Margin);
+                    page.DefaultTextStyle(x => x.FontFamily(FontFamily).FontSize(FontSize));
+
+                    page.Content().Column(col =>
                     {
-                        page.Size(PageSizes.A4);
-                        page.Margin(40);
-                        page.DefaultTextStyle(x => x.FontSize(10));
+                        void Centre(string text, bool bold = false) =>
+                            col.Item().AlignCenter().Text(t => { var s = t.Span(text); if (bold) s.Bold(); });
 
-                        // ✅ Header Section with image
-                        page.Header()
-                            .Height(120)
-                            .Row(row =>
+                        void Pair(string left, string right, bool bold = false) =>
+                            col.Item().Row(row =>
                             {
-                                row.RelativeItem().Column(col =>
-                                {
-                                    col.Item().Text("DR WASH")
-                                        .FontSize(24)
-                                        .FontColor(Colors.Blue.Medium)
-                                        .Bold();
-                                    col.Item().Text("Professional Vehicle Care Services")
-                                        .FontSize(12)
-                                        .FontColor(Colors.Grey.Medium);
-                                    col.Item().PaddingTop(10).Text("123 Main Street, City Center")
-                                        .FontSize(10)
-                                        .FontColor(Colors.Grey.Medium);
-                                    col.Item().Text("Professional Vehicle Care Services")
-                                        .FontSize(10)
-                                        .FontColor(Colors.Grey.Medium);
-                                });
-
-                                // ✅ Add header logo image
-                                row.ConstantItem(120)
-                                   .AlignRight()
-                                   .Image(imagePath)
-                                   .FitArea();
+                                row.RelativeItem().Text(t => { var s = t.Span(left); if (bold) s.Bold(); });
+                                row.AutoItem().PaddingLeft(6).Text(t => { var s = t.Span(right); if (bold) s.Bold(); });
                             });
 
-                        // Invoice Title and Details
-                        page.Content()
-                            .PaddingTop(20)
-                            .Column(col =>
-                            {
-                                // Invoice Title
-                                col.Item().Row(row =>
-                                {
-                                    row.RelativeItem().Text("INVOICE")
-                                        .FontSize(28)
-                                        .Bold()
-                                        .FontColor(Colors.Blue.Medium);
-                                    row.ConstantItem(200).AlignRight().Column(invoiceCol =>
-                                    {
-                                        invoiceCol.Item().Text($"Invoice #: {invoiceData.InvoiceNumber}")
-                                            .FontSize(12)
-                                            .Bold();
-                                        invoiceCol.Item().Text($"Date: {invoiceData.InvoiceDate:dd/MM/yyyy}")
-                                            .FontSize(12);
-                                        invoiceCol.Item().Text($"Time: {invoiceData.InvoiceDate:HH:mm}")
-                                            .FontSize(12);
-                                    });
-                                });
+                        void Gap() => col.Item().Height(6);
 
-                                col.Item().PaddingVertical(20);
+                        // Header
+                        col.Item().Text(heavyRule);
+                        Centre(name, bold: true);
+                        col.Item().Text(heavyRule);
 
-                                // Customer Information
-                                col.Item().Row(row =>
-                                {
-                                    row.RelativeItem().Column(customerCol =>
-                                    {
-                                        customerCol.Item().Text("BILL TO:")
-                                            .FontSize(14)
-                                            .Bold()
-                                            .FontColor(Colors.Grey.Medium);
-                                        customerCol.Item().PaddingTop(5).Text(invoiceData.CustomerName)
-                                            .FontSize(12)
-                                            .Bold();
-                                        // Email and phone removed per requirement
-                                    });
+                        Centre(address1);
+                        Centre(address2);
+                        Gap();
 
-                                    row.ConstantItem(200).Column(vehicleCol =>
-                                    {
-                                        vehicleCol.Item().Text("VEHICLE DETAILS:")
-                                            .FontSize(14)
-                                            .Bold()
-                                            .FontColor(Colors.Grey.Medium);
-                                        vehicleCol.Item().PaddingTop(5).Text($"Type: {invoiceData.VehicleType}")
-                                            .FontSize(12);
-                                        vehicleCol.Item().Text($"License Plate: {invoiceData.LicensePlate}")
-                                            .FontSize(12)
-                                            .Bold();
-                                    });
-                                });
+                        Pair($"DATE: {when:dd/MM/yy}", $"TIME: {when:HH:mm:ss}");
+                        col.Item().Text($"INVOICE: {invoice.InvoiceNumber}");
+                        Gap();
 
-                                col.Item().PaddingVertical(20);
+                        // Vehicle
+                        if (!string.IsNullOrWhiteSpace(invoice.VehicleType))
+                            col.Item().Text($"VEHICLE: {invoice.VehicleType.ToUpperInvariant()}");
+                        if (!string.IsNullOrWhiteSpace(invoice.LicensePlate))
+                            col.Item().Text($"PLATE: {invoice.LicensePlate.ToUpperInvariant()}");
+                        Gap();
 
-                                // Services Table
-                                col.Item().Table(table =>
-                                {
-                                    table.ColumnsDefinition(columns =>
-                                    {
-                                        columns.RelativeColumn(3); // Description
-                                        columns.ConstantColumn(60); // Qty
-                                        columns.ConstantColumn(80); // Unit Price
-                                        columns.ConstantColumn(80); // Total
-                                    });
+                        // Items
+                        col.Item().Text(lightRule);
+                        foreach (var item in invoice.ServiceItems)
+                        {
+                            var description = (item.Description ?? "").ToUpperInvariant();
+                            if (item.TotalPrice == 0m)
+                                col.Item().Text($"  {description}");   // included extras: no price
+                            else
+                                Pair(description, item.TotalPrice.ToString("C"));
+                        }
+                        col.Item().Text(lightRule);
 
-                                    // Table Header
-                                    table.Header(header =>
-                                    {
-                                        header.Cell().Background(Colors.Grey.Lighten2)
-                                            .Padding(8)
-                                            .Text("DESCRIPTION")
-                                            .FontSize(11)
-                                            .Bold();
-                                        header.Cell().Background(Colors.Grey.Lighten2)
-                                            .Padding(8)
-                                            .AlignCenter()
-                                            .Text("QTY")
-                                            .FontSize(11)
-                                            .Bold();
-                                        header.Cell().Background(Colors.Grey.Lighten2)
-                                            .Padding(8)
-                                            .AlignRight()
-                                            .Text("UNIT PRICE")
-                                            .FontSize(11)
-                                            .Bold();
-                                        header.Cell().Background(Colors.Grey.Lighten2)
-                                            .Padding(8)
-                                            .AlignRight()
-                                            .Text("TOTAL")
-                                            .FontSize(11)
-                                            .Bold();
-                                    });
+                        // Total and payment
+                        Pair("TOTAL", invoice.TotalAmount.ToString("C"), bold: true);
+                        Gap();
+                        Pair("PAYMENT", (invoice.PaymentMethod ?? "").ToUpperInvariant());
+                        Gap();
 
-                                    // Service Items
-                                    foreach (var item in invoiceData.ServiceItems)
-                                    {
-                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Medium)
-                                            .Padding(8)
-                                            .Text(item.Description)
-                                            .FontSize(10);
-                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Medium)
-                                            .Padding(8)
-                                            .AlignCenter()
-                                            .Text(item.Quantity.ToString())
-                                            .FontSize(10);
-                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Medium)
-                                            .Padding(8)
-                                            .AlignRight()
-                                            .Text($"£{item.UnitPrice:F2}")
-                                            .FontSize(10);
-                                        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Medium)
-                                            .Padding(8)
-                                            .AlignRight()
-                                            .Text($"£{item.TotalPrice:F2}")
-                                            .FontSize(10);
-                                    }
-                                });
-
-                                col.Item().PaddingVertical(20);
-
-                                // Totals Section
-                                col.Item().Row(row =>
-                                {
-                                    row.RelativeItem(); // Empty space
-                                    row.ConstantItem(200).Column(totalsCol =>
-                                    {
-                                        // Subtotal
-                                        totalsCol.Item().Row(subtotalRow =>
-                                        {
-                                            subtotalRow.RelativeItem().Text("SUBTOTAL:")
-                                                .FontSize(12)
-                                                .Bold();
-                                            subtotalRow.ConstantItem(80).AlignRight()
-                                                .Text($"£{invoiceData.Subtotal:F2}")
-                                                .FontSize(12)
-                                                .Bold();
-                                        });
-
-                                        // Total
-                                        totalsCol.Item().Row(totalRow =>
-                                        {
-                                            totalRow.RelativeItem().Text("TOTAL:")
-                                                .FontSize(14)
-                                                .Bold()
-                                                .FontColor(Colors.Blue.Medium);
-                                            totalRow.ConstantItem(80).AlignRight()
-                                                .Text($"£{invoiceData.TotalAmount:F2}")
-                                                .FontSize(14)
-                                                .Bold()
-                                                .FontColor(Colors.Blue.Medium);
-                                        });
-                                    });
-                                });
-
-                                col.Item().PaddingVertical(20);
-
-                                // Payment Information
-                                if (!string.IsNullOrEmpty(invoiceData.PaymentMethod))
-                                {
-                                    col.Item().Row(row =>
-                                    {
-                                        row.RelativeItem().Text($"Payment Method: {invoiceData.PaymentMethod}")
-                                            .FontSize(12)
-                                            .Bold();
-                                    });
-                                }
-
-                                // Notes
-                                if (!string.IsNullOrEmpty(invoiceData.Notes))
-                                {
-                                    col.Item().PaddingTop(20).Text("Notes:")
-                                        .FontSize(12)
-                                        .Bold()
-                                        .FontColor(Colors.Grey.Medium);
-                                    col.Item().PaddingTop(5).Text(invoiceData.Notes)
-                                        .FontSize(10);
-                                }
-
-                                col.Item().PaddingTop(30);
-
-                                // Footer
-                                col.Item().BorderTop(1).BorderColor(Colors.Grey.Medium)
-                                    .PaddingTop(15)
-                                    .Row(footerRow =>
-                                    {
-                                        footerRow.RelativeItem().Column(footerCol =>
-                                        {
-                                            footerCol.Item().Text("Thank you for choosing Car Wash Point!")
-                                                .FontSize(12)
-                                                .Bold()
-                                                .FontColor(Colors.Blue.Medium);
-                                            footerCol.Item().PaddingTop(5).Text("Terms: Payment due upon receipt. Services are non-refundable.")
-                                                .FontSize(9)
-                                                .FontColor(Colors.Grey.Medium);
-                                        });
-                                        footerRow.ConstantItem(150).AlignRight().Column(footerCol =>
-                                        {
-                                            footerCol.Item().Text("Car Wash Point")
-                                                .FontSize(10)
-                                                .Bold();
-                                            footerCol.Item().Text("Professional Vehicle Care")
-                                                .FontSize(8)
-                                                .FontColor(Colors.Grey.Medium);
-                                        });
-                                    });
-                            });
+                        // Footer
+                        col.Item().Text(heavyRule);
+                        Centre(footer, bold: true);
+                        col.Item().Text(heavyRule);
                     });
-                }).GeneratePdf();
-            }
-            catch (Exception e)
-            {
-                throw;
-            }
+                });
+            });
         }
     }
 
     public class InvoiceDto
     {
-        public string CustomerName { get; set; }
-        public string CustomerEmail { get; set; }
-        public string CustomerPhone { get; set; }
-        public string VehicleType { get; set; }
-        public string LicensePlate { get; set; }
-        public string InvoiceNumber { get; set; }
+        public string CustomerName { get; set; } = "";
+        public string CustomerEmail { get; set; } = "";
+        public string CustomerPhone { get; set; } = "";
+        public string VehicleType { get; set; } = "";
+        public string LicensePlate { get; set; } = "";
+        public string InvoiceNumber { get; set; } = "";
         public DateTime InvoiceDate { get; set; }
         public List<ServiceItem> ServiceItems { get; set; } = new List<ServiceItem>();
         public decimal Subtotal { get; set; }
         public decimal TaxRate { get; set; } = 0.20m; // 20% VAT
         public decimal TaxAmount { get; set; }
         public decimal TotalAmount { get; set; }
-        public string PaymentMethod { get; set; }
-        public string Notes { get; set; }
+        public string PaymentMethod { get; set; } = "";
+        public string Notes { get; set; } = "";
     }
 
     public class ServiceItem
     {
-        public string Description { get; set; }
+        public string Description { get; set; } = "";
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TotalPrice { get; set; }

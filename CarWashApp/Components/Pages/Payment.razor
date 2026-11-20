@@ -488,26 +488,17 @@
 
     byte[] pdfBytes;
 
+    // No test values here: every field is filled in from the real payment (UpdateInvoiceData).
     InvoiceDto invoiceDto = new()
     {
-        CustomerName = "Test Customer",
-        CustomerEmail = "customer@email.com",
-        CustomerPhone = "+1234567890",
-        VehicleType = "Car",
-        LicensePlate = "ABC123",
         InvoiceNumber = $"INV-{DateTime.Now:yyyy-MM-dd-HHmmss}",
         InvoiceDate = DateTime.Now,
-        ServiceItems = new List<ServiceItem>
-        {
-            new ServiceItem { Description = "Car Wash Service", Quantity = 1, UnitPrice = 0m, TotalPrice = 0m }
-        },
-        Subtotal = 0m,
-        TaxRate = 0.20m,
-        TaxAmount = 0m,
-        TotalAmount = 0m,
-        PaymentMethod = "Cash",
-        Notes = "Car wash service completed successfully."
+        PaymentMethod = ""
     };
+
+    // The amounts actually charged, captured when the payment starts so the invoice cannot lose them later.
+    private decimal invoiceBaseAmount;
+    private decimal invoiceFinalAmount;
 
     PaymentMethod selectedPaymentMethod;
     /// <summary>Cash portion when <see cref="PaymentMethod.Split"/> is selected.</summary>
@@ -601,6 +592,10 @@
 
         isProcessingPayment = true;
         showChangePopup = false;
+
+        // Remember what is being charged now, for the invoice.
+        invoiceFinalAmount = carWashCharges;
+        invoiceBaseAmount = originalAmount > 0 ? originalAmount : carWashCharges;
         try
         {
             // Always close any active session before starting a new payment.
@@ -1413,8 +1408,9 @@
 
     private void UpdateInvoiceData()
     {
-        decimal baseAmount = originalAmount > 0 ? originalAmount : carWashCharges;
-        decimal finalAmount = carWashCharges; // This is the amount after any discounts
+        // Use the amounts captured when the payment started; fall back to the live values otherwise.
+        decimal baseAmount = invoiceBaseAmount > 0 ? invoiceBaseAmount : (originalAmount > 0 ? originalAmount : carWashCharges);
+        decimal finalAmount = invoiceFinalAmount > 0 ? invoiceFinalAmount : carWashCharges; // amount after any discounts
         
         // Clear existing service items
         invoiceDto.ServiceItems.Clear();
@@ -1511,6 +1507,7 @@
         invoiceDto.InvoiceDate = DateTime.Now;
         
         // Update vehicle information in invoice
+        invoiceDto.LicensePlate = selectedCar?.LicensePlate ?? "";
         if (selectedVehicle != null)
         {
             invoiceDto.VehicleType = selectedVehicle.Title;
@@ -1518,7 +1515,7 @@
         }
         else if (selectedCar != null)
         {
-            invoiceDto.LicensePlate = selectedCar.LicensePlate;
+            invoiceDto.VehicleType = selectedCar.Name;
             invoiceDto.CustomerName = $"Vehicle Owner ({selectedCar.Name})";
         }
     }

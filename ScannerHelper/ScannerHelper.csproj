@@ -24,6 +24,7 @@
     <None Include="..\CarWashApp\*.ax" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Install-ScannerHelper.ps1" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Uninstall-ScannerHelper.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Verify-ShopPC.ps1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
